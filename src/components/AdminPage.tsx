@@ -166,7 +166,7 @@ export default function AdminPage({ onBack, shared }: Props) {
 
     // 2. Kirim murni ke tabel 'keuangan' Supabase
     const { data, error } = await supabase
-      .from('pendanaan')
+      .from('keuangan')
       .insert([
         { 
           nama: k.nama, 
@@ -190,7 +190,7 @@ export default function AdminPage({ onBack, shared }: Props) {
     setDbError('Testing...');
     try {
       // Test 1: Coba SELECT
-      const { data, error: selErr } = await supabase.from('pendanaan').select('*').limit(1);
+      const { data, error: selErr } = await supabase.from('keuangan').select('*').limit(1);
       if (selErr) {
         const msg = `SELECT gagal: ${selErr.message} (${selErr.code})\n\nTabel 'keuangan' kemungkinan BELUM DIBUAT di Supabase.\n\nBuka Supabase SQL Editor dan jalankan:\n\nCREATE TABLE keuangan (\n  id BIGSERIAL PRIMARY KEY,\n  nama TEXT NOT NULL,\n  jenis TEXT DEFAULT 'donasi',\n  jumlah BIGINT DEFAULT 0,\n  keterangan TEXT,\n  is_anon BOOLEAN DEFAULT FALSE,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nALTER TABLE keuangan ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "public_all" ON keuangan FOR ALL USING (true) WITH CHECK (true);`;
         setDbError(msg);
@@ -198,7 +198,7 @@ export default function AdminPage({ onBack, shared }: Props) {
         return;
       }
       // Test 2: Coba INSERT
-      const { error: insErr } = await supabase.from('pendanaan').insert([{ nama: 'TEST', jenis: 'donasi', jumlah: 0, keterangan: 'Test koneksi — hapus baris ini', is_anon: false }]);
+      const { error: insErr } = await supabase.from('keuangan').insert([{ nama: 'TEST', jenis: 'donasi', jumlah: 0, keterangan: 'Test koneksi — hapus baris ini', is_anon: false }]);
       if (insErr) {
         const msg = `INSERT gagal: ${insErr.message} (${insErr.code})\n\nKemungkinan: RLS policy belum diset.\n\nJalankan di SQL Editor:\nALTER TABLE keuangan ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "public_all" ON keuangan FOR ALL USING (true) WITH CHECK (true);`;
         setDbError(msg);
@@ -221,7 +221,7 @@ export default function AdminPage({ onBack, shared }: Props) {
     shared.setTotalDana(updated.reduce((s, x) => s + (x.jumlah || 0), 0));
     saveToLocal(updated); // LANGSUNG simpan ke localStorage
     if (k.id && k.id > 0) {
-      supabase.from('pendanaan').delete().eq('id', k.id).then(() => shared.fetchKeuangan());
+      supabase.from('keuangan').delete().eq('id', k.id).then(() => shared.fetchKeuangan());
     }
   };
 
@@ -275,7 +275,7 @@ export default function AdminPage({ onBack, shared }: Props) {
 
         <div className="flex gap-2 mb-6">
           <button onClick={() => setTab('peserta')} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition ${tab === 'peserta' ? 'bg-[#C1272D] text-white shadow' : 'bg-white text-gray-600 border'}`}>📝 Peserta ({participants.length})</button>
-          <button onClick={() => setTab('pendanaan')} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition ${tab === 'keuangan' ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-600 border'}`}>💰 Keuangan ({keuanganList.length})</button>
+          <button onClick={() => setTab('keuangan')} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition ${tab === 'keuangan' ? 'bg-gray-900 text-white shadow' : 'bg-white text-gray-600 border'}`}>💰 Keuangan ({keuanganList.length})</button>
           <button onClick={() => { shared.fetchParticipants(); shared.fetchKeuangan(); }} className="ml-auto px-4 py-2.5 rounded-xl text-sm font-bold bg-white border text-gray-600 hover:bg-gray-50">🔄 Refresh</button>
         </div>
 
