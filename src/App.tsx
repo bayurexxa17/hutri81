@@ -62,10 +62,35 @@ export default function App() {
 
   const fetchKeuangan = useCallback(async () => {
     try {
-      const c = new AbortController(); setTimeout(() => c.abort(), 3000);
-      const { data } = await supabase.from('pendanaan').select('*').order('id', { ascending: false }).abortSignal(c.signal);
-      if (data && data.length > 0) { setKeuanganList(data); setTotalDana(data.reduce((s: number, k: any) => s + (k.jumlah || 0), 0)); }
-    } catch { /* no Supabase — keep local */ }
+      const c = new AbortController(); setTimeout(() => c.abort(), 5000);
+      const combined: KeuanganEntry[] = [];
+
+      // Fetch dari SEMUA tabel keuangan yang ada di Supabase
+      const [r1, r2, r3, r4, r5] = await Promise.allSettled([
+        supabase.from('donasi_online').select('*').order('id', { ascending: false }).abortSignal(c.signal),
+        supabase.from('donasi_cash').select('*').order('id', { ascending: false }).abortSignal(c.signal),
+        supabase.from('iuran_warga').select('*').order('id', { ascending: false }).abortSignal(c.signal),
+        supabase.from('sponsor').select('*').order('id', { ascending: false }).abortSignal(c.signal),
+        supabase.from('donasi').select('*').order('id', { ascending: false }).abortSignal(c.signal),
+      ]);
+
+      // donasi_online
+      if (r1.status === 'fulfilled' && r1.value.data) r1.value.data.forEach((d: any) => combined.push({ id: d.id, nama: d.nama_donatur || '', jenis: 'donasi', jumlah: d.jumlah || 0, keterangan: `[${d.metode || 'Online'}] ${d.pesan || ''}`, created_at: d.created_at }));
+      // donasi_cash
+      if (r2.status === 'fulfilled' && r2.value.data) r2.value.data.forEach((d: any) => combined.push({ id: 1000 + d.id, nama: d.nama_donatur || '', jenis: 'cash', jumlah: d.jumlah || 0, keterangan: `[${d.metode || 'Cash'}] ${d.pesan || ''}`, created_at: d.created_at }));
+      // iuran_warga
+      if (r3.status === 'fulfilled' && r3.value.data) r3.value.data.forEach((d: any) => combined.push({ id: 2000 + d.id, nama: d.nama || d.nama_warga || d.sumber || '', jenis: 'iuran', jumlah: d.jumlah || 0, keterangan: d.keterangan || d.alamat || '', created_at: d.created_at }));
+      // sponsor
+      if (r4.status === 'fulfilled' && r4.value.data) r4.value.data.forEach((d: any) => combined.push({ id: 3000 + d.id, nama: d.nama_perusahaan || '', jenis: 'sponsor', jumlah: d.jumlah || 0, keterangan: `${d.kategori_donatur || ''} ${d.kontak || ''}`, created_at: d.created_at }));
+      // donasi (general)
+      if (r5.status === 'fulfilled' && r5.value.data) r5.value.data.forEach((d: any) => combined.push({ id: 4000 + d.id, nama: d.nama_donatur || '', jenis: 'donatur', jumlah: d.jumlah || 0, keterangan: d.pesan || '', created_at: d.created_at }));
+
+      if (combined.length > 0) {
+        combined.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        setKeuanganList(combined);
+        setTotalDana(combined.reduce((s, k) => s + (k.jumlah || 0), 0));
+      }
+    } catch { /* no Supabase — keep localStorage data */ }
     setLastRefresh(new Date());
   }, []);
 
@@ -148,7 +173,7 @@ function MainPage({ shared, onAdminClick, onGalleryClick }: { shared: SharedData
     setFormData({ name: '', rt: '', hp: '', lomba: [], catatan: '' });
 
     // 2. BACKGROUND: Save to Supabase (fire-and-forget, non-blocking)
-    const payload = { nama: newP.name, telepon: newP.hp, rt: newP.rt, lomba: newP.lomba.join(', '), catatan: newP.catatan };
+    const payload = { nama: newP.name, telepon: newP.hp, rt: newP.rt, lomba: newP.lomba.join(', '), kategori: newP.catatan };
     Promise.resolve(supabase.from('pendaftar').insert([payload])).then(({ error }) => {
       if (!error) fetchParticipants();
     }).catch(() => {});
@@ -167,10 +192,12 @@ function MainPage({ shared, onAdminClick, onGalleryClick }: { shared: SharedData
     setShowBuktiDonasi({ id: `DON-${Date.now()}`, name: donorName, alamat: donasiForm.alamat, jumlah, pesan: donasiForm.pesan, waktu: new Date().toLocaleString('id-ID'), isAnon: donasiForm.isAnon, jenis: 'donasi' });
     setDonasiForm({ name: '', alamat: '', jumlah: '', pesan: '', isAnon: false, metode: 'qris_dana' });
 
-    // 2. BACKGROUND: Save to Supabase + log error
-    Promise.resolve(supabase.from('pendanaan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}`, is_anon: donasiForm.isAnon }]))
-      .then((res: any) => { if (res?.error) console.warn('⚠️ Supabase keuangan insert gagal:', res.error.message); else fetchKeuangan(); })
-      .catch(() => console.warn('⚠️ Supabase tidak tersedia — data tersimpan di localStorage'));
+    // 2. BACKGROUND: Save to Supabase tabel yang BENAR
+    const tableName = donasiForm.metode === 'cash' ? 'donasi_cash' : 'donasi_online';
+    const insertData = { nama_donatur: donorName, metode: metodeLabel, jumlah, pesan: donasiForm.alamat };
+    Promise.resolve(supabase.from(tableName).insert([insertData]))
+      .then((res: any) => { if (res?.error) console.warn(`⚠️ Supabase ${tableName} insert gagal:`, res.error.message); else { console.log(`✅ Tersimpan ke ${tableName}`); fetchKeuangan(); } })
+      .catch(() => console.warn('⚠️ Supabase tidak tersedia'));
   };
 
   const uniqueLomba = Array.from(new Set(participants.flatMap(p => p.lomba))).sort();
