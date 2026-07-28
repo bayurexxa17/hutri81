@@ -167,31 +167,53 @@ export default function AdminPage({ onBack, shared }: Props) {
       });
   };
 
+  // Detect Supabase project ref untuk link langsung ke SQL Editor
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase/)?.[1] || '';
+  const sqlEditorUrl = projectRef ? `https://supabase.com/dashboard/project/${projectRef}/sql/new` : 'https://supabase.com/dashboard';
+
+  const createTableSQL = `-- COPY PASTE SEMUA INI, LALU KLIK "RUN"
+CREATE TABLE IF NOT EXISTS keuangan (
+  id BIGSERIAL PRIMARY KEY,
+  nama TEXT NOT NULL,
+  jenis TEXT DEFAULT 'donasi',
+  jumlah BIGINT DEFAULT 0,
+  keterangan TEXT,
+  is_anon BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE keuangan ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "public_all" ON keuangan;
+CREATE POLICY "public_all" ON keuangan FOR ALL USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE keuangan;`;
+
+  const [showSetupSQL, setShowSetupSQL] = useState(false);
+
   const testKeuanganTable = async () => {
     setDbError('Testing...');
     try {
-      // Test 1: Coba SELECT
-      const { data, error: selErr } = await supabase.from('keuangan').select('*').limit(1);
+      const { error: selErr } = await supabase.from('keuangan').select('*').limit(1);
       if (selErr) {
-        const msg = `SELECT gagal: ${selErr.message} (${selErr.code})\n\nTabel 'keuangan' kemungkinan BELUM DIBUAT di Supabase.\n\nBuka Supabase SQL Editor dan jalankan:\n\nCREATE TABLE keuangan (\n  id BIGSERIAL PRIMARY KEY,\n  nama TEXT NOT NULL,\n  jenis TEXT DEFAULT 'donasi',\n  jumlah BIGINT DEFAULT 0,\n  keterangan TEXT,\n  is_anon BOOLEAN DEFAULT FALSE,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nALTER TABLE keuangan ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "public_all" ON keuangan FOR ALL USING (true) WITH CHECK (true);`;
-        setDbError(msg);
-        alert(`❌ ${msg}`);
+        setDbError(`❌ Tabel "keuangan" BELUM ADA di Supabase! Error: ${selErr.message}`);
+        setShowSetupSQL(true);
         return;
       }
-      // Test 2: Coba INSERT
-      const { error: insErr } = await supabase.from('keuangan').insert([{ nama: 'TEST', jenis: 'donasi', jumlah: 0, keterangan: 'Test koneksi — hapus baris ini', is_anon: false }]);
+      const { error: insErr } = await supabase.from('keuangan').insert([{ nama: 'TEST_KONEKSI', jenis: 'donasi', jumlah: 1, keterangan: 'Test — boleh dihapus', is_anon: false }]);
       if (insErr) {
-        const msg = `INSERT gagal: ${insErr.message} (${insErr.code})\n\nKemungkinan: RLS policy belum diset.\n\nJalankan di SQL Editor:\nALTER TABLE keuangan ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "public_all" ON keuangan FOR ALL USING (true) WITH CHECK (true);`;
-        setDbError(msg);
-        alert(`❌ ${msg}`);
+        setDbError(`❌ INSERT gagal: ${insErr.message} — RLS policy perlu diset.`);
+        setShowSetupSQL(true);
         return;
       }
       setDbError('');
-      alert(`✅ Tabel 'keuangan' OK!\n\nSELECT: ✅\nINSERT: ✅\nJumlah data: ${(data?.length || 0) + 1}\n\nCatatan: 1 baris test telah ditambahkan (nama: TEST, jumlah: 0). Hapus manual jika perlu.`);
+      setShowSetupSQL(false);
+      alert('✅ Tabel keuangan OK! Data berhasil disimpan ke Supabase.');
       shared.fetchKeuangan();
     } catch (e: any) {
-      setDbError(`Network error: ${e.message}`);
-      alert(`❌ Koneksi gagal: ${e.message}\n\nPeriksa VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY`);
+      setDbError(`❌ Koneksi error: ${e.message}`);
+      setShowSetupSQL(true);
     }
   };
 
@@ -298,22 +320,45 @@ export default function AdminPage({ onBack, shared }: Props) {
 
         {tab === 'keuangan' && (
           <div>
-            {/* DB Error Banner */}
+            {/* DB Status + Setup */}
             {dbError && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
-                <span className="text-xl flex-shrink-0">❌</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-red-800">Supabase Error — Tabel Keuangan</div>
-                  <pre className="text-xs text-red-600 mt-1 whitespace-pre-wrap break-all">{dbError}</pre>
+              <div className="bg-red-50 border border-red-300 rounded-2xl p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-xl">❌</span>
+                  <div className="flex-1"><div className="font-bold text-sm text-red-800">{dbError}</div></div>
+                  <button onClick={() => { setDbError(''); setShowSetupSQL(false); }} className="text-red-400 hover:text-red-600 text-lg">✕</button>
                 </div>
-                <button onClick={() => setDbError('')} className="text-red-400 hover:text-red-600 text-lg flex-shrink-0">✕</button>
               </div>
             )}
-            {/* Test Button */}
-            <div className="flex gap-2 mb-4">
-              <button onClick={testKeuanganTable} className="text-xs font-bold px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">🔧 Test Koneksi Tabel Keuangan</button>
-              <span className="text-[10px] text-gray-400 self-center">Klik untuk cek apakah tabel &apos;keuangan&apos; sudah dibuat di Supabase</span>
-            </div>
+            {showSetupSQL && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 mb-4">
+                <h4 className="font-black text-amber-900 text-base mb-2">⚠️ Tabel "keuangan" belum ada di Supabase!</h4>
+                <p className="text-sm text-amber-800 mb-3">Tabel harus dibuat manual di Supabase SQL Editor. Ikuti langkah berikut:</p>
+                <div className="bg-white border rounded-xl p-4 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-sm text-gray-800">SQL yang harus dijalankan:</span>
+                    <button onClick={() => { navigator.clipboard.writeText(createTableSQL); alert('✅ SQL disalin ke clipboard!'); }} className="text-xs font-bold px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">📋 Salin SQL</button>
+                  </div>
+                  <pre className="text-xs text-gray-700 bg-gray-50 p-3 rounded-lg overflow-x-auto whitespace-pre font-mono leading-relaxed">{createTableSQL}</pre>
+                </div>
+                <div className="space-y-2 text-sm text-amber-800">
+                  <p><strong>Langkah:</strong></p>
+                  <p>1️⃣ Klik tombol <strong>"Buka SQL Editor"</strong> di bawah</p>
+                  <p>2️⃣ Paste SQL di atas ke editor</p>
+                  <p>3️⃣ Klik <strong>"Run"</strong></p>
+                  <p>4️⃣ Kembali ke sini, klik <strong>"🔧 Test Koneksi"</strong></p>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <a href={sqlEditorUrl} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-sm font-bold px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition">🚀 Buka Supabase SQL Editor</a>
+                  <button onClick={testKeuanganTable} className="flex-1 text-sm font-bold px-4 py-3 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">🔧 Test Koneksi</button>
+                </div>
+              </div>
+            )}
+            {!showSetupSQL && (
+              <div className="flex gap-2 mb-4">
+                <button onClick={testKeuanganTable} className="text-xs font-bold px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition">🔧 Test Koneksi Tabel Keuangan</button>
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
               {jenisOptions.map(o => (<div key={o.value} className={`${o.color} rounded-xl p-3 text-center`}><div className="text-xs font-bold opacity-70">{o.label}</div><div className="font-black text-lg mt-1">{formatRupiah(totalByJenis(o.value))}</div></div>))}
             </div>
