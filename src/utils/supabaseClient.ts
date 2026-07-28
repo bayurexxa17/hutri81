@@ -1,42 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-function getUrl() {
-  try {
-    const ls = localStorage.getItem('supabaseUrl');
-    if (ls) return ls;
-  } catch {}
-  return (import.meta as any).env?.VITE_SUPABASE_URL || 'https://afyyozywnupfdcshxjhk.supabase.co';
-}
-function getAnonKey() {
-  try {
-    const ls = localStorage.getItem('supabaseAnonKey');
-    if (ls) return ls;
-  } catch {}
-  return (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_EMfJHsDHNjTIatH07CuIzA_BopfHXTe';
-}
-function getSecretKey() {
-  try {
-    const ls = localStorage.getItem('supabaseSecretKey');
-    if (ls) return ls;
-  } catch {}
-  return '';
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing!")
 }
 
-export const supabase = createClient(getUrl(), getAnonKey());
-
-export const getSupabaseAdmin = () => {
-  // For admin write operations with secret key (still client-side, use with caution)
-  return createClient(getUrl(), getSecretKey());
-};
-
-export const setSupabaseConfig = (url: string, anonKey?: string, secretKey?: string) => {
-  if (url) localStorage.setItem('supabaseUrl', url);
-  if (anonKey) localStorage.setItem('supabaseAnonKey', anonKey);
-  if (secretKey) localStorage.setItem('supabaseSecretKey', secretKey);
-};
-
-export const getSupabaseConfig = () => ({
-  url: getUrl(),
-  anonKey: getAnonKey(),
-  secretKey: getSecretKey(),
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
