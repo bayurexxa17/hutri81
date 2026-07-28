@@ -1,12 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-// Supabase project credentials
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || ''
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing!")
+}
 
-// Table schemas expected:
-// pendaftar: id, nama, telepon, rt, lomba, catatan, created_at
-// keuangan: id, nama, jenis (iuran/donasi/sponsor/donatur/cash), jumlah, keterangan, is_anon, created_at
-// gallery: id, title, url, type (photo/video), created_at
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Tambahkan dan ekspor fungsi-fungsi ini agar App.tsx bisa membacanya
+let currentConfig = { url: supabaseUrl, anonKey: supabaseAnonKey };
+
+export function getSupabaseConfig() {
+  return currentConfig;
+}
+
+export function setSupabaseConfig(newConfig: { url: string; anonKey: string }) {
+  currentConfig = newConfig;
+}
+
+export function getSupabaseAdmin() {
+  return supabase;
+}
