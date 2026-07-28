@@ -63,7 +63,7 @@ export default function App() {
   const fetchKeuangan = useCallback(async () => {
     try {
       const c = new AbortController(); setTimeout(() => c.abort(), 3000);
-      const { data } = await supabase.from('keuangan').select('*').order('id', { ascending: false }).abortSignal(c.signal);
+      const { data } = await supabase.from('pendanaan').select('*').order('id', { ascending: false }).abortSignal(c.signal);
       if (data && data.length > 0) { setKeuanganList(data); setTotalDana(data.reduce((s: number, k: any) => s + (k.jumlah || 0), 0)); }
     } catch { /* no Supabase — keep local */ }
     setLastRefresh(new Date());
@@ -168,7 +168,7 @@ function MainPage({ shared, onAdminClick, onGalleryClick }: { shared: SharedData
     setDonasiForm({ name: '', alamat: '', jumlah: '', pesan: '', isAnon: false, metode: 'qris_dana' });
 
     // 2. BACKGROUND: Save to Supabase + log error
-    Promise.resolve(supabase.from('keuangan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}`, is_anon: donasiForm.isAnon }]))
+    Promise.resolve(supabase.from('pendanaan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}`, is_anon: donasiForm.isAnon }]))
       .then((res: any) => { if (res?.error) console.warn('⚠️ Supabase keuangan insert gagal:', res.error.message); else fetchKeuangan(); })
       .catch(() => console.warn('⚠️ Supabase tidak tersedia — data tersimpan di localStorage'));
   };
