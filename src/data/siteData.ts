@@ -102,7 +102,6 @@ export const lombaCategories = [
   { id: 'bapak', label: '👨 Bapak-bapak', icon: '👨' },
   { id: 'remaja', label: '🧑 Remaja', icon: '🧑' },
   { id: 'keluarga', label: '👨‍👩‍👧 Keluarga', icon: '👨‍👩‍👧' },
-  { id: 'umum', label: '👥 Umum', icon: '👥' },
 ];
 
 // ============================================
@@ -124,6 +123,7 @@ export const panitiaList: PanitiaItem[] = [
   { nama: 'Lani', jabatan: 'Sekretaris', hp: '0813-7116-2792', isCore: true },
   { nama: 'Aulia Komari', jabatan: 'Bendahara 1', hp: '0812-3456-7892', isCore: true },
   { nama: 'Puput', jabatan: 'Bendahara 2', hp: '0831-8330-3884', isCore: true },
+  { nama: 'Aryo', jabatan: 'Runner', hp: '0856-0134-31284', isCore: true },
   { nama: 'M.Dzaki', jabatan: 'MC', hp: '0858-3660-5110' },
   { nama: 'Lukman', jabatan: 'MC', hp: '0853-xxx-xxx' },
   { nama: 'Agha', jabatan: 'Koordinator Lomba', hp: '0851-9433-4760' },
@@ -149,10 +149,10 @@ export interface BudgetRow {
 
 export const budgetRows: BudgetRow[] = [
   { komponen: 'Total Anggaran — Pesta Rakyat (17 Agt)', jumlah: 10000000, detailKey: 'pestaRakyat' },
-  { komponen: 'Total Anggaran — Malam Puncak (17 Agt Malam)', jumlah: 7000000, detailKey: 'malamPuncak' },
+  { komponen: 'Total Anggaran — Malam Puncak (22 Agt Malam)', jumlah: 7000000, detailKey: 'malamPuncak' },
   { komponen: 'TOTAL KEBUTUHAN ANGGARAN', jumlah: 17000000, isTotal: true },
-  { komponen: 'Total Dana Masuk (Pendanaan)', jumlah: 19000000, detailKey: 'danaMasuk' },
-  { komponen: 'SELISIH (Dana Masuk - Kebutuhan)', jumlah: 2000000, isSurplus: true },
+  { komponen: 'Total Dana Masuk (Pendanaan)', jumlah: 17 000000, detailKey: 'danaMasuk' },
+  { komponen: 'SELISIH (Dana Masuk - Kebutuhan)', jumlah: 0, isSurplus: true },
 ];
 
 export interface BudgetDetail { item: string; qty: string; harga: number; subtotal: number; }
@@ -165,7 +165,7 @@ export const budgetDetails: Record<string, BudgetDetail[]> = {
   ],
   malamPuncak: [
     { item: 'Panggung & Backdrop', qty: '1 set', harga: 2000000, subtotal: 2000000 },
-    { item: 'Hiburan & MC', qty: '1 paket', harga: 1500000, subtotal: 1500000 },
+    { item: 'Hiburan', qty: '1 paket', harga: 1500000, subtotal: 1500000 },
     { item: 'Konsumsi Malam', qty: '1 paket', harga: 2000000, subtotal: 2000000 },
     { item: 'Dokumentasi & Lain-lain', qty: '1 paket', harga: 1500000, subtotal: 1500000 },
   ],
