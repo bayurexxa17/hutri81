@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* =============================================
+   Global & Utilities
+   ============================================= */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar hide for nav tabs */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Modal animate-in */
+@keyframes animate-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-in { animation: animate-in 0.25s ease-out; }
+
+/* Custom table scrollbar */
+.overflow-y-auto::-webkit-scrollbar { width: 6px; }
+.overflow-y-auto::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+.overflow-y-auto::-webkit-scrollbar-thumb { background: #C1272D40; border-radius: 3px; }
+.overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #C1272D80; }
+
+/* Tabular nums for countdown */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Print styles */
+@media print {
+  nav, footer, .fixed, button, .no-print { display: none !important; }
+  section { break-inside: avoid; page-break-inside: avoid; }
+  body { background: white !important; }
+}
