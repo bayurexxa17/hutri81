@@ -5,7 +5,7 @@ function getUrl() {
     const ls = localStorage.getItem('supabaseUrl');
     if (ls) return ls;
   } catch {}
-  return (import.meta as any).env?.VITE_SUPABASE_URL || 'https://example.supabase.co';
+  return (import.meta as any).env?.VITE_SUPABASE_URL || 'https://afyyozywnupfdcshxjhk.supabase.co';
 }
 function getAnonKey() {
   try {
