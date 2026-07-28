@@ -155,8 +155,9 @@ export default function AdminPage({ onBack, shared }: Props) {
     saveToLocal(updated); // LANGSUNG simpan ke localStorage
     setKeuanganModal(null);
     setDbError('');
-    // Coba simpan ke Supabase juga
-    supabase.from('keuangan').insert([{ nama: k.nama, jenis: k.jenis, jumlah: k.jumlah, keterangan: k.keterangan, is_anon: k.is_anon || false }])
+    
+    // Simpan ke Supabase (is_anon dihapus karena kolomnya tidak ada di database)
+    supabase.from('keuangan').insert([{ nama: k.nama, jenis: k.jenis, jumlah: k.jumlah, keterangan: k.keterangan }])
       .then((res) => {
         if (res.error) {
           setDbError(`Supabase: ${res.error.message}`);
