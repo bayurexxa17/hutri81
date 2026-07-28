@@ -147,27 +147,45 @@ export default function AdminPage({ onBack, shared }: Props) {
     try { localStorage.setItem('hutri81-keuangan', JSON.stringify(list)); } catch { /* storage full */ }
   };
 
-  const handleSaveKeuangan = (k: KeuanganEntry) => {
-    const newK: KeuanganEntry = { ...k, id: k.id || -(Date.now()), created_at: k.created_at || new Date().toISOString() };
+  const handleSaveKeuangan = async (k: KeuanganEntry) => {
+    // 1. Update state lokal & localStorage agar langsung tampil di UI
+    const newK: KeuanganEntry = { 
+      ...k, 
+      id: k.id || -(Date.now()), 
+      created_at: k.created_at || new Date().toISOString() 
+    };
     const updated = [newK, ...shared.keuanganList];
     shared.setKeuanganList(updated);
     shared.setTotalDana(updated.reduce((s, x) => s + (x.jumlah || 0), 0));
-    saveToLocal(updated); // LANGSUNG simpan ke localStorage
+    try { 
+      localStorage.setItem('hutri81-keuangan', JSON.stringify(updated)); 
+    } catch {}
+    
     setKeuanganModal(null);
     setDbError('');
-    
-    // Simpan ke Supabase (is_anon dihapus karena kolomnya tidak ada di database)
-    supabase.from('keuangan').insert([{ nama: k.nama, jenis: k.jenis, jumlah: k.jumlah, keterangan: k.keterangan }])
-      .then((res) => {
-        if (res.error) {
-          setDbError(`Supabase: ${res.error.message}`);
-        } else {
-          setDbError('');
-          shared.fetchKeuangan();
-        }
-      });
-  };
 
+    // 2. Kirim murni ke tabel 'keuangan' Supabase
+    const { data, error } = await supabase
+      .from('keuangan')
+      .insert([
+        { 
+          nama: k.nama, 
+          jenis: k.jenis, 
+          jumlah: Number(k.jumlah), 
+          keterangan: k.keterangan || '' 
+        }
+      ]);
+
+    if (error) {
+      console.error('GAGAL INSERT SUPABASE:', error);
+      setDbError(`Supabase Error (${error.code}): ${error.message}`);
+      alert(`Gagal simpan ke database: ${error.message}`);
+    } else {
+      console.log('SUKSES TERISIAN KE SUPABASE:', data);
+      setDbError('');
+      shared.fetchKeuangan();
+    }
+  };
   const testKeuanganTable = async () => {
     setDbError('Testing...');
     try {
