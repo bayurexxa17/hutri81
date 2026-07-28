@@ -166,7 +166,7 @@ function MainPage({ shared, onAdminClick, onGalleryClick }: { shared: SharedData
     setDonasiForm({ name: '', alamat: '', jumlah: '', pesan: '', isAnon: false, metode: 'qris_dana' });
 
     // 2. BACKGROUND: Save to Supabase + log error
-    Promise.resolve(supabase.from('keuangan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}`, is_anon: donasiForm.isAnon }]))
+    Promise.resolve(supabase.from('keuangan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}` }]))
       .then((res: any) => { if (res?.error) console.warn('⚠️ Supabase keuangan insert gagal:', res.error.message); else fetchKeuangan(); })
       .catch(() => console.warn('⚠️ Supabase tidak tersedia — data tersimpan di localStorage'));
   };
