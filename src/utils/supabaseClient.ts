@@ -9,7 +9,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Tambahkan fungsi-fungsi berikut agar bisa diimpor oleh App.tsx
+// Tambahkan dan ekspor fungsi-fungsi pendukung ini agar build berhasil
 let currentConfig = { url: supabaseUrl, anonKey: supabaseAnonKey };
 
 export function getSupabaseConfig() {
