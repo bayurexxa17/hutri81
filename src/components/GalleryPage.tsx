@@ -15,8 +15,8 @@ const items: GalleryItem[] = [
   {
     id: 1, 
     type: 'photo',
-    thumb: '/images/20260726_091521.jpg',
-    full: '/images/20260726_091521.jpg',
+    thumb: '/images/20260726_091534.jpg',
+    full: '/images/20260726_091534.jpg',
     title: 'Acara GO-RO Blok Mawar',
     credit: 'Dokumentasi Warga Blok Mawar',
   },
