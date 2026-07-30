@@ -3,48 +3,38 @@ import { supabase, getSupabaseAdmin, setSupabaseConfig, getSupabaseConfig } from
 import GalleryPage from './components/GalleryPage';
 
 interface Participant { id: string; name: string; rt: string; hp: string; lomba: string[]; catatan: string; waktu: string; createdAt: number; }
-interface Donor { id: string; name: string; alamat: string; jumlah: number; pesan: string; waktu: string; isAnon: boolean; }
-interface Funding { id: string; sumber: string; jumlah: number; kategori: 'iuran'|'donasi'|'sponsor'|'donatur'|'kas'; status: 'confirmed'|'pending'; metode: 'cash'|'transfer'|'qris'; }
+interface Donor { id: string; name: string; alamat: string; jumlah: number; pesan: string; waktu: string; isAnon: boolean; metode?: string; jenis?: string; }
+interface Funding { id: string; sumber: string; jumlah: number; kategori: 'iuran'|'donasi'|'sponsor'|'donatur'|'kas'|'donasi_cash'|'donasi_online'; status: 'confirmed'|'pending'; metode: 'cash'|'transfer'|'qris'; jenis?: string; }
 interface LombaItem { id: string; title: string; kategori: 'anak'|'ibu'|'bapak'|'remaja'|'keluarga'|'umum'; emoji: string; waktu: string; hadiah: string; peserta: string; deskripsi: string; }
 interface GalleryItem { id: string; type: 'image'|'video'; src: string; title: string; credit?: string; thumb?: string; }
+interface InventoryItem { id: string; nama: string; kategori: 'peralatan'|'aksesoris'|'dekorasi'|'sound'|'lainnya'; jumlah: number; kondisi: 'baik'|'rusak'|'hilang'; lokasi: string; penanggungJawab: string; }
+interface CommentItem { id: string; galleryId: string; nama: string; pesan: string; waktu: string; }
+interface ArchiveItem { tahun: number; tema: string; peserta: number; dana: number; lomba: number; deskripsi: string; }
 
 const LOMBA_DATA: LombaItem[] = [
-  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Usia 5-15 tahun', deskripsi: 'Makan kerupuk tanpa tangan untuk anak-anak' },
+  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Usia 5-15 tahun', deskripsi: 'Makan kerupuk tanpa tangan' },
   { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Usia 7-15 tahun', deskripsi: 'Balap kelereng klasik' },
-  { id: 'penguin-anak', title: 'Lomba Estafet Penguin Anak', kategori: 'anak', emoji: '🐧', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Tim 3 anak SD', deskripsi: 'Lomba Model Baru Keseruan dan Kekompakan' },
-  { id: 'futsal', title: 'Futsal Mini', kategori: 'remaja', emoji: '⚽', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Tim 5 orang', deskripsi: 'Futsal Mini beregu' },
-  { id: 'sambung', title: 'Salah Sambung', kategori: 'remaja', emoji: '🗣️', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Usia 13-17 tahun', deskripsi: 'Melatih Fokus dan Kekompakan' },
-  { id: 'penguin-remaja', title: 'Lomba Estafet Penguin Remaja', kategori: 'remaja', emoji: '🐧', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Usia 13-17 tahun', deskripsi: 'Kekompakan remaja' },
-  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 8 orang', deskripsi: 'Adu kekuatan dan kekompakan' },
-  { id: 'joget-bapak', title: 'Lomba Joget Kursi Bapak', kategori: 'bapak', emoji: '💃', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Bapak-bapak', deskripsi: 'Joget kursi bapak-bapak' },
-  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 3 Orang', deskripsi: 'Estafet Tepung kekompakan' },
-  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu rumah tangga', deskripsi: 'Kreasi Para Ibu dengan Cita Rasa Terbaik' },
-  { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Kreasikan Gaya Terbaik dan Terlucu' },
-  { id: 'joget-ibu', title: 'Lomba Joget Kursi Ibu', kategori: 'ibu', emoji: '🪑', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Joget kursi ibu-ibu' },
-  { id: 'makeup', title: 'Lomba Make Up Buta', kategori: 'keluarga', emoji: '💄', waktu: '15:00 WIB', hadiah: 'Menarik', peserta: 'Pasangan', deskripsi: 'Make Up Buta kekompakan pasangan' },
+  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 8 orang', deskripsi: 'Adu kekuatan' },
+  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu rumah tangga', deskripsi: 'Kreasi Para Ibu' },
+  { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Gaya Terbaik dan Terlucu' },
+  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 3', deskripsi: 'Estafet Tepung' },
 ];
 
 const defaultParticipants: Participant[] = [
-  { id: 'MWR81-0013', name: 'Rizki', rt: 'RT 02/blok mawar 102', hp: '08981234470', lomba: ['Lomba Joget Kursi Bapak'], catatan: 'Live join', waktu: '29/7/2026, 13:13:08', createdAt: Date.now()- 1000*60*1 },
-  { id: 'MWR81-0012', name: 'Indah', rt: 'RT/ mawar 102', hp: '08211234882', lomba: ['Lomba Joget Kursi Ibu','Lomba Estafet Tepung','Lomba Hias Tumpeng'], catatan: 'Live join', waktu: '29/7/2026, 13:12:00', createdAt: Date.now()- 1000*60*2 },
-  { id: 'MWR81-0011', name: 'Mam lala', rt: 'Mawar 83', hp: '08781234155', lomba: ['Lomba Joget Kursi Ibu'], catatan: 'Live join', waktu: '29/7/2026, 12:56:08', createdAt: Date.now()- 1000*60*5 },
-  { id: 'MWR81-0010', name: 'nouren', rt: 'Mawar 127', hp: '08131234648', lomba: ['Lomba Makan Kerupuk','Lomba Estafet Penguin Anak','Lomba Balap Kelereng'], catatan: 'Live join', waktu: '29/7/2026, 12:24:58', createdAt: Date.now()- 1000*60*10 },
-  { id: 'MWR81-0009', name: 'Dewi, indah, Evi', rt: 'RT002/Mawar83', hp: '087874419155', lomba: ['Lomba Estafet Tepung'], catatan: 'Live join', waktu: '29/7/2026, 09:50:29', createdAt: Date.now()- 1000*60*60 },
-  { id: 'MWR81-0008', name: 'Evi,Dewi,indah,Andi Fitri,Cece', rt: '002/ Mawar 83', hp: '087874419155', lomba: ['Lomba Hias Tumpeng'], catatan: 'Live join', waktu: '29/7/2026, 09:47:32', createdAt: Date.now()- 1000*60*70 },
-  { id: 'MWR81-0007', name: 'lifi', rt: 'Mawar 127', hp: '08238374207', lomba: ['Lomba Balap Kelereng','Lomba Estafet Penguin Anak'], catatan: 'Live join', waktu: '28/7/2026, 21:39:49', createdAt: Date.now()- 1000*60*80 },
-  { id: 'MWR81-0006', name: 'alif', rt: 'Mawar 127', hp: '08238374207', lomba: ['Salah Sambung','Lomba Balap Kelereng'], catatan: 'Live join', waktu: '28/7/2026, 21:34:56', createdAt: Date.now()- 1000*60*90 },
-  { id: 'MWR81-0005', name: 'lifi', rt: 'Mawar 127', hp: '08238374207', lomba: ['Lomba Balap Kelereng','Lomba Estafet Penguin Anak'], catatan: 'Live join', waktu: '28/7/2026, 21:33:00', createdAt: Date.now()- 1000*60*95 },
-  { id: 'MWR81-0004', name: 'Lala', rt: 'Mawar 83', hp: '087874419155', lomba: ['Lomba Balap Kelereng','Salah Sambung','Lomba Estafet Penguin Remaja'], catatan: 'Live join', waktu: '28/7/2026, 20:57:57', createdAt: Date.now()- 1000*60*100 },
-  { id: 'MWR81-0003', name: 'Abiyu Rexxa', rt: 'RT 002/58 Blok Mawar', hp: '081288395550', lomba: ['Lomba Makan Kerupuk'], catatan: 'Live join', waktu: '28/7/2026, 16:26:05', createdAt: Date.now()- 1000*60*120 },
-  { id: 'MWR81-0002', name: 'Ameera Hanania R', rt: 'RT 002 / Blok Mawar', hp: '081299176369', lomba: ['Fashion Week Daster','Estafet Penguin Anak'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()- 1000*60*130 },
-  { id: 'MWR81-0001', name: 'Fatimah Az Zahra', rt: 'RT 002 / Blok Mawar', hp: '081234567890', lomba: ['Makan Kerupuk','Balap Kelereng'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()- 1000*60*140 },
+  { id: 'MWR81-0013', name: 'Rizki', rt: 'RT 02/blok mawar 102', hp: '08981234470', lomba: ['Lomba Joget Kursi Bapak'], catatan: 'Live join', waktu: '29/7/2026, 13:13:08', createdAt: Date.now()-60000 },
+  { id: 'MWR81-0012', name: 'Indah', rt: 'RT/ mawar 102', hp: '08211234882', lomba: ['Lomba Joget Kursi Ibu','Lomba Estafet Tepung','Lomba Hias Tumpeng'], catatan: 'Live join', waktu: '29/7/2026, 13:12:00', createdAt: Date.now()-120000 },
+  { id: 'MWR81-0011', name: 'Mam lala', rt: 'Mawar 83', hp: '08781234155', lomba: ['Lomba Joget Kursi Ibu'], catatan: 'Live join', waktu: '29/7/2026, 12:56:08', createdAt: Date.now()-300000 },
+  { id: 'MWR81-0002', name: 'Ameera Hanania R', rt: 'RT 002 / Blok Mawar', hp: '081299176369', lomba: ['Fashion Week Daster','Estafet Penguin Anak'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()-800000 },
+  { id: 'MWR81-0001', name: 'Fatimah Az Zahra', rt: 'RT 002 / Blok Mawar', hp: '081234567890', lomba: ['Makan Kerupuk','Balap Kelereng'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()-900000 },
 ];
 
-const defaultFunding = [
-  { id: 'f1', sumber: 'Iuran Warga 50K/KK x 200 KK', jumlah: 10000000, kategori: 'iuran' as const, status: 'confirmed' as const, metode: 'cash' as const },
-  { id: 'f2', sumber: 'Donasi Warga via DANA/SeaBank', jumlah: 5000000, kategori: 'donasi' as const, status: 'confirmed' as const, metode: 'transfer' as const },
-  { id: 'f3', sumber: 'Sponsor UMKM Lokal', jumlah: 3000000, kategori: 'sponsor' as const, status: 'confirmed' as const, metode: 'transfer' as const },
-  { id: 'f4', sumber: 'Kas RT 002', jumlah: 1000000, kategori: 'kas' as const, status: 'confirmed' as const, metode: 'cash' as const },
+const defaultFunding: Funding[] = [
+  { id: 'f1', sumber: 'Iuran Warga 50K/KK x 200 KK', jumlah: 10000000, kategori: 'iuran', status: 'confirmed', metode: 'cash', jenis: 'iuran warga' },
+  { id: 'f2', sumber: 'Donasi Warga via DANA/SeaBank', jumlah: 5000000, kategori: 'donasi_online', status: 'confirmed', metode: 'transfer', jenis: 'donasi online' },
+  { id: 'f3', sumber: 'Sponsor UMKM Lokal', jumlah: 3000000, kategori: 'sponsor', status: 'confirmed', metode: 'transfer', jenis: 'sponsor' },
+  { id: 'f4', sumber: 'Kas RT 002', jumlah: 1000000, kategori: 'kas', status: 'confirmed', metode: 'cash', jenis: 'kas' },
+  { id: 'f5', sumber: 'Donasi Cash Warga', jumlah: 2000000, kategori: 'donasi_cash', status: 'confirmed', metode: 'cash', jenis: 'donasi cash' },
+  { id: 'f6', sumber: 'Donatur Hamba Allah', jumlah: 1500000, kategori: 'donatur', status: 'confirmed', metode: 'qris', jenis: 'donatur' },
 ];
 
 const PANITIA_USERS = [
@@ -59,7 +49,6 @@ const PANITIA_USERS = [
 const OWNER_USERS = [
   { username: 'owner', password: 'owner81', nama: 'Owner', role: 'owner' },
   { username: 'superadmin', password: 'super2026!', nama: 'Super Admin', role: 'owner' },
-  { username: 'panitiaowner', password: 'ownerpanitia2026!', nama: 'Panitia Owner', role: 'owner' },
 ];
 
 const PANITIA_DATA = [
@@ -73,25 +62,6 @@ const PANITIA_DATA = [
   { jabatan: 'Bendahara II', nama: 'Puput (0831-8330-3884)' },
 ];
 
-const PANITIA_LAIN = [
-  { nama: 'Lani', jabatan: 'Sekretaris', hp: '0813-7116-2792' },
-  { nama: 'Aulia Komari', jabatan: 'Bendahara 1', hp: '0812-3456-7892' },
-  { nama: 'Puput', jabatan: 'Bendahara 2', hp: '0831-8330-3884' },
-  { nama: 'Aryo', jabatan: 'Runner', hp: '0856-0134-31284' },
-  { nama: 'M.Dzaki', jabatan: 'MC', hp: '0858-3660-5110' },
-  { nama: 'M.Haikal', jabatan: 'MC', hp: '0853-5574-7998' },
-  { nama: 'Agha', jabatan: 'Koordinator Lomba', hp: '0851-9433-4760' },
-  { nama: 'Adib', jabatan: 'Koordinator Lomba', hp: '0813-6365-2626' },
-  { nama: 'Hanif', jabatan: 'Koordinator Lomba', hp: '0881-3712-0796' },
-  { nama: 'Satria', jabatan: 'Koordinator Lomba', hp: '0819-9201-0197' },
-  { nama: 'Ridho Ananda', jabatan: 'Koordinator Lomba', hp: '0823-8718-8929' },
-  { nama: 'Andre', jabatan: 'Koordinator Lomba', hp: '08xx-xxx-xxx' },
-  { nama: 'Dio', jabatan: 'Koordinator Lomba', hp: '0813-7112-100' },
-  { nama: 'Reza', jabatan: 'Koordinator Lomba', hp: '08xx-xxx-xxx' },
-  { nama: 'Aryo', jabatan: 'Runner', hp: '0856-0134-31284' },
-  { nama: 'Lukman', jabatan: 'MC', hp: '0853-xxxx-xxxx' },
-];
-
 const ANGGARAN_DATA = [
   { komponen: 'Total Anggaran — Pesta Rakyat (17 Agt)', jumlah: 10000000, detail: 'pesta-rakyat' },
   { komponen: 'Total Anggaran — Malam Puncak (22 Agt Malam)', jumlah: 7000000, detail: 'malam-puncak' },
@@ -101,38 +71,44 @@ const ANGGARAN_DATA = [
 ];
 
 const ANGGARAN_DETAIL: any = {
-  'pesta-rakyat': { title: 'Rincian Pesta Rakyat 17 Agt (10jt)', items: [{ nama: 'Hadiah Lomba', qty: '13 kategori', harga: 5000000 }, { nama: 'Konsumsi', qty: '200 pax', harga: 3000000 }, { nama: 'Dekorasi', qty: '1 paket', harga: 1500000 }, { nama: 'Sound', qty: '1 hari', harga: 500000 }]},
-  'malam-puncak': { title: 'Rincian Malam Puncak (7jt)', items: [{ nama: 'Panggung & Lighting', qty: '1 set', harga: 3000000 }, { nama: 'Hadiah Utama', qty: '1 paket', harga: 2500000 }, { nama: 'Konsumsi Malam', qty: '150 pax', harga: 1000000 }, { nama: 'Dokumentasi', qty: '1 tim', harga: 500000 }]},
-  'dana-masuk': { title: 'Rincian Dana Masuk (19jt)', items: [{ nama: 'Iuran Warga 50K/KK x 200 KK', qty: '200', harga: 10000000 }, { nama: 'Donasi via DANA/SeaBank', qty: 'realtime', harga: 5000000 }, { nama: 'Sponsor Lokal', qty: '5', harga: 3000000 }, { nama: 'Kas RT', qty: '1', harga: 1000000 }]},
+  'pesta-rakyat': { title: 'Rincian Pesta Rakyat 17 Agt (10jt)', items: [{ nama: 'Hadiah Lomba', qty: '13 kategori', harga: 5000000 }, { nama: 'Konsumsi', qty: '200 pax', harga: 3000000 }]},
+  'malam-puncak': { title: 'Rincian Malam Puncak (7jt)', items: [{ nama: 'Panggung', qty: '1 set', harga: 3000000 }, { nama: 'Hadiah Utama', qty: '1 paket', harga: 2500000 }]},
+  'dana-masuk': { title: 'Rincian Dana Masuk (19jt)', items: [{ nama: 'Iuran Warga', qty: '200', harga: 10000000 }, { nama: 'Donasi', qty: 'realtime', harga: 5000000 }]},
 };
 
 const RUNDOWN = [
   { jam: '06:00', kegiatan: '📋 Persiapan Lokasi & Registrasi Peserta (Panitia & Peserta)', group: 'PAGI & PERLOMBAAN' },
   { jam: '07:00', kegiatan: '🇮🇩 Upacara Bendera & Pembukaan Resmi (Seluruh Warga)', group: 'PAGI & PERLOMBAAN' },
   { jam: '07:00', kegiatan: '🎤 Sambutan Ketua RT & Ketua Panitia (Undangan)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '08:00', kegiatan: '👶 Lomba Anak-anak (Makan Kerupuk, Balap Kelereng, Estafet Penguin) (Usia 5-15 tahun)', group: 'PAGI & PERLOMBAAN' },
+  { jam: '08:30', kegiatan: '👶 Lomba Anak-anak (Makan Kerupuk, Balap Kelereng, Estafet Penguin) (Usia 5-15 tahun)', group: 'PAGI & PERLOMBAAN' },
   { jam: '10:00', kegiatan: '🧑 Lomba Remaja (Futsal Mini, Salah Sambung, Estafet Penguin) (Usia 13-17 tahun)', group: 'PAGI & PERLOMBAAN' },
   { jam: '11:00', kegiatan: '🪢 Lomba Bapak-bapak (Tarik Tambang, Joget Kursi, Estafet Tepung) (Bapak-bapak)', group: 'PAGI & PERLOMBAAN' },
   { jam: '12:00', kegiatan: '🍛 Istirahat, Sholat & Makan Siang (Seluruh Warga)', group: 'PAGI & PERLOMBAAN' },
   { jam: '13:00', kegiatan: '👗 Lomba Ibu-ibu (Hias Tumpeng, Fashion Daster, Joget Kursi) (Ibu-ibu)', group: 'PAGI & PERLOMBAAN' },
   { jam: '15:00', kegiatan: '👨‍👩‍👧 Lomba Keluarga (Make Up Buta) (Pasangan)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '16:00', kegiatan: '✅ Penutupan Seluruh Perlombaan & Persiapan Pengumuman Pemenang', group: 'PAGI & PERLOMBAAN' },
+  { jam: '16:00', kegiatan: '✅ Penutupan Perlombaan & Persiapan Malam Puncak', group: 'PAGI & PERLOMBAAN' },
   { jam: '19:00', kegiatan: '🎊 Pembukaan Malam Puncak (MC & Panitia)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
   { jam: '19:30', kegiatan: '🎶 Hiburan Rakyat & Pentas Seni (Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
   { jam: '20:00', kegiatan: '🏆 Pengumuman Pemenang & Penyerahan Hadiah (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
   { jam: '20:30', kegiatan: '🍱 Penilaian Hias Tumpeng (Peserta Ibu-ibu)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
   { jam: '21:00', kegiatan: '🎁 Doorprize (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '21:30', kegiatan: '🙏 Sambutan Penutup & Doa Bersama (Ketua RT & Panitia)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
+  { jam: '21:30', kegiatan: '🙏 Sambutan Penutup & Doa Bersama (Ketua RT)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
   { jam: '22:00', kegiatan: '🏁 Penutupan Acara & Ramah Tamah (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
 ];
 
 const DEFAULT_GALLERY: any[] = [
   { id: 'g1', type: 'image', src: '/images/20260726_091521.jpg', title: 'Panjat Pinang — Lomba Tradisional 17 Agustus', credit: 'Dokumentasi Warga Blok Mawar' },
-  { id: 'g2', type: 'image', src: 'https://images.pexels.com/photos/32293284/pexels-photo-32293284.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=400&w=600', title: 'Lomba Tradisional Anak-anak HUT RI', credit: 'Yazid N / Pexels' },
-  { id: 'g3', type: 'image', src: 'https://images.pexels.com/photos/33807987/pexels-photo-33807987.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=400&w=600', title: 'Panjat Pinang — Semangat Kemerdekaan', credit: 'Rakhmat Suwandi / Pexels' },
-  { id: 'g4', type: 'image', src: 'https://images.pexels.com/photos/13389844/pexels-photo-13389844.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=400&w=600', title: 'Anak-anak Membawa Bendera Merah Putih', credit: 'Irgi Nur Fadil / Pexels' },
+  { id: 'g2', type: 'image', src: 'https://images.pexels.com/photos/33807994/pexels-photo-33807994.jpeg?auto=compress&cs=tinysrgb&w=800', title: 'Perayaan Kemerdekaan — Kirab Bendera', credit: 'Rakhmat Suwandi / Pexels' },
+  { id: 'g3', type: 'image', src: 'https://images.pexels.com/photos/35161342/pexels-photo-35161342.jpeg?auto=compress&cs=tinysrgb&w=800', title: 'Upacara Bendera Merah Putih', credit: 'Tommy Kurniawan / Pexels' },
   { id: 'v1', type: 'video', src: 'https://videos.pexels.com/video-files/34373272/14563035_1920_1080_30fps.mp4', title: 'Karnaval 17 Agustus — Parade Desa', credit: 'just a hobby / Pexels' },
-  { id: 'v2', type: 'video', src: 'https://videos.pexels.com/video-files/34373278/14563041_1920_1080_30fps.mp4', title: 'Karnaval 17 Agustus — Aerial View', credit: 'just a hobby / Pexels' },
+];
+
+const DEFAULT_INVENTORY: InventoryItem[] = [
+  { id: 'inv1', nama: 'Tenda Terpal 3x3', kategori: 'peralatan', jumlah: 5, kondisi: 'baik', lokasi: 'Gudang RT', penanggungJawab: 'Sugiono' },
+  { id: 'inv2', nama: 'Sound System + Mic', kategori: 'sound', jumlah: 1, kondisi: 'baik', lokasi: 'Rumah Ketua', penanggungJawab: 'Bayu' },
+  { id: 'inv3', nama: 'Bendera Merah Putih Besar', kategori: 'dekorasi', jumlah: 10, kondisi: 'baik', lokasi: 'Gudang', penanggungJawab: 'Lani' },
+  { id: 'inv4', nama: 'Kursi Plastik', kategori: 'peralatan', jumlah: 50, kondisi: 'baik', lokasi: 'Balai Warga', penanggungJawab: 'Eka' },
+  { id: 'inv5', nama: 'Kostum Daster Fashion Show', kategori: 'aksesoris', jumlah: 15, kondisi: 'baik', lokasi: 'Rumah Aulia', penanggungJawab: 'Aulia' },
 ];
 
 function formatRupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
@@ -143,11 +119,17 @@ export default function App() {
   useEffect(()=>{ const target=new Date('2026-08-17T06:00:00').getTime(); const t=setInterval(()=>{ const diff=target-Date.now(); if(diff<=0){ setCountdown({hari:0,jam:0,menit:0,detik:0}); return; } setCountdown({hari:Math.floor(diff/(1000*60*60*24)),jam:Math.floor((diff/(1000*60*60))%24),menit:Math.floor((diff/(1000*60))%60),detik:Math.floor((diff/1000)%60)}); },1000); return()=>clearInterval(t); },[]);
 
   const [participants, setParticipants] = useState<Participant[]>(()=>{ try{ const s=localStorage.getItem('hutri-participants-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)&&p.length>0) return p; } }catch{} return defaultParticipants; });
-  const [donors, setDonors] = useState<Donor[]>(()=>{ try{ const s=localStorage.getItem('hutri-donors-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
+  const [donors, setDonors] = useState<Donor[]>(()=>{ try{ const s=localStorage.getItem('hutri-donors-mawar'); if(s) return JSON.parse(s); }catch{} return []; });
   const [funding, setFunding] = useState<Funding[]>(()=>{ try{ const s=localStorage.getItem('hutri-funding-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)&&p.length>0) return p; } }catch{} return defaultFunding; });
-  const [transaksi, setTransaksi] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-transaksi'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return [{ id:'TRX-001', metode:'qris-dana', nama:'Hamba Allah', jumlah:150000, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:'QRIS DANA 0813****5007' }, { id:'TRX-002', metode:'transfer-seabank', nama:'Warga Blok Mawar', jumlah:50000, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:'SeaBank 901592977740' }]; });
+  const [transaksi, setTransaksi] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-transaksi'); if(s) return JSON.parse(s); }catch{} return [{ id:'TRX-001', metode:'qris-dana', nama:'Hamba Allah', jumlah:150000, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:'QRIS DANA 0813****5007' }]; });
   const [gallery, setGallery] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-gallery'); if(s) return JSON.parse(s); }catch{} return DEFAULT_GALLERY; });
-  const [selectedVideo, setSelectedVideo] = useState<any>(DEFAULT_GALLERY.find((g:any)=>g.type==='video')||null);
+  const [inventory, setInventory] = useState<InventoryItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-inventory'); if(s) return JSON.parse(s); }catch{} return DEFAULT_INVENTORY; });
+  const [comments, setComments] = useState<CommentItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-comments'); if(s) return JSON.parse(s); }catch{} return []; });
+  const [archive, setArchive] = useState<ArchiveItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-archive'); if(s) return JSON.parse(s); }catch{} return [
+    { tahun: 2024, tema: 'Semarak Kemerdekaan 79', peserta: 85, dana: 15000000, lomba: 10, deskripsi: 'Perayaan HUT RI ke-79 dengan lomba tradisional' },
+    { tahun: 2025, tema: 'Bersatu dalam Keberagaman', peserta: 120, dana: 17500000, lomba: 12, deskripsi: 'HUT RI ke-80 dimeriahkan Karnaval Budaya' },
+    { tahun: 2026, tema: 'Blok Mawar Bersatu — HUT RI ke-81', peserta: 13, dana: 19000000, lomba: 13, deskripsi: 'HUT RI ke-81 dengan 13 lomba dan total hadiah jutaan' },
+  ]; });
 
   const [search, setSearch] = useState(''); const [filterLomba, setFilterLomba] = useState('Semua'); const [filterRT, setFilterRT] = useState('Semua'); const [filterKategori, setFilterKategori] = useState('Semua');
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString('id-ID')); const [live, setLive] = useState(true); const [highlightId, setHighlightId] = useState<string|null>(null);
@@ -159,17 +141,22 @@ export default function App() {
   const [isOwner, setIsOwner] = useState(()=>{ try{ return localStorage.getItem('isOwner')==='true'; }catch{ return false; } });
   const [currentUser, setCurrentUser] = useState<any>(()=>{ try{ const s=localStorage.getItem('currentUser'); if(s) return JSON.parse(s); }catch{} return null; });
   const [showWA, setShowWA] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview'|'peserta'|'keuangan'|'donasi'|'gallery'|'supabase'>('overview');
+  const [selectedVideo, setSelectedVideo] = useState<any>(DEFAULT_GALLERY.find((g:any)=>g.type==='video')||null);
+  const [adminTab, setAdminTab] = useState<'overview'|'peserta'|'keuangan'|'donasi'|'gallery'|'supabase'|'inventory'>('overview');
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(getSupabaseConfig().url);
   const [supabaseStatus, setSupabaseStatus] = useState<'idle'|'testing'|'ok'|'fail'>('idle');
   const [editParticipant, setEditParticipant] = useState<Participant|null>(null);
-  const [newFunding, setNewFunding] = useState({ sumber:'', jumlah:'', kategori:'iuran' as Funding['kategori'], metode:'cash' as Funding['metode'] });
-  const [cashDonasi, setCashDonasi] = useState({ nama:'', jumlah:'', metode:'cash' as Funding['metode'] });
+  const [newFunding, setNewFunding] = useState({ sumber:'', jumlah:'', kategori:'iuran' as any, metode:'cash' as any });
+  const [cashDonasi, setCashDonasi] = useState({ nama:'', jumlah:'', metode:'cash' as any });
   const [galleryZoom, setGalleryZoom] = useState<any|null>(null);
   const [galleryFilter, setGalleryFilter] = useState<'semua'|'foto'|'video'>('semua');
   const [showGalleryPage, setShowGalleryPage] = useState(false);
+  const [showInventoryPage, setShowInventoryPage] = useState(false);
+  const [showArchivePage, setShowArchivePage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qrisCustom, setQrisCustom] = useState<string|null>(()=>{ try{ return localStorage.getItem('qris-custom-image'); }catch{ return null; } });
+  const [newInventory, setNewInventory] = useState({ nama:'', kategori:'peralatan' as any, jumlah:'', kondisi:'baik' as any, lokasi:'', penanggungJawab:'' });
+  const [commentForm, setCommentForm] = useState({ galleryId:'', nama:'', pesan:'' });
   const editParticipantRef = useRef<Participant|null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
@@ -178,13 +165,15 @@ export default function App() {
   useEffect(()=>{ localStorage.setItem('hutri-funding-mawar', JSON.stringify(funding)); },[funding]);
   useEffect(()=>{ localStorage.setItem('hutri-transaksi', JSON.stringify(transaksi)); },[transaksi]);
   useEffect(()=>{ localStorage.setItem('hutri-gallery', JSON.stringify(gallery)); },[gallery]);
+  useEffect(()=>{ localStorage.setItem('hutri-inventory', JSON.stringify(inventory)); },[inventory]);
+  useEffect(()=>{ localStorage.setItem('hutri-comments', JSON.stringify(comments)); },[comments]);
+  useEffect(()=>{ localStorage.setItem('hutri-archive', JSON.stringify(archive)); },[archive]);
   useEffect(()=>{ try{ localStorage.setItem('isPanitia', String(isPanitia)); }catch{} },[isPanitia]);
   useEffect(()=>{ try{ localStorage.setItem('isOwner', String(isOwner)); }catch{} },[isOwner]);
   useEffect(()=>{ if(currentUser) localStorage.setItem('currentUser', JSON.stringify(currentUser)); },[currentUser]);
   useEffect(()=>{ editParticipantRef.current = editParticipant; },[editParticipant]);
   useEffect(()=>{ if(qrisCustom) try{ localStorage.setItem('qris-custom-image', qrisCustom); }catch{} },[qrisCustom]);
 
-  // Broadcast sync fix ngedip
   useEffect(()=>{
     let bc: BroadcastChannel | null = null;
     try {
@@ -193,124 +182,43 @@ export default function App() {
         const msg = ev.data;
         if (msg?.type==='new-peserta' && msg.data) {
           const np = msg.data as Participant;
-          setParticipants(prev=>{
-            // allow multiple: check by id not hp, so same hp can register multiple games
-            if(prev.some(p=>p.id===np.id)) return prev;
-            if (editParticipantRef.current && editParticipantRef.current.hp===np.hp) return prev;
-            setHighlightId(np.id); setTimeout(()=>setHighlightId(null),4000);
-            return [np, ...prev];
-          });
+          setParticipants(prev=>{ if(prev.some(p=>p.id===np.id)) return prev; setHighlightId(np.id); setTimeout(()=>setHighlightId(null),4000); return [np, ...prev]; });
+        }
+        if (msg?.type==='new-komentar' && msg.data) {
+          setComments(prev=> prev.some(c=>c.id===msg.data.id) ? prev : [msg.data, ...prev]);
         }
       };
     } catch {}
-    const onStorage = (e: StorageEvent) => {
-      const active = document.activeElement?.tagName;
-      const isInputFocused = active==='INPUT' || active==='TEXTAREA' || active==='SELECT';
-      if (isInputFocused) return;
-      if (e.key==='hutri-last-peserta' && e.newValue) {
-        try {
-          const np = JSON.parse(e.newValue) as Participant;
-          setParticipants(prev=>{
-            if(prev.some(p=>p.id===np.id)) return prev;
-            if (editParticipantRef.current && editParticipantRef.current.hp===np.hp) return prev;
-            setHighlightId(np.id); setTimeout(()=>setHighlightId(null),4000);
-            return [np, ...prev];
-          });
-        } catch {}
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return ()=>{ try{ bc?.close(); }catch{} window.removeEventListener('storage', onStorage); };
+    return ()=>{ try{ bc?.close(); }catch{} };
   },[]);
 
-  // Supabase sync (peserta, keuangan, donasi, transaksi) - merge not overwrite
+  // Supabase sync
   useEffect(()=>{
-    let ch1:any, ch2:any, ch3:any;
     (async()=>{
       try{
         const { data } = await supabase.from('pendaftar').select('*').order('created_at',{ascending:false}).limit(200);
         if (data && data.length) {
-          const mapped: Participant[] = data.map((d:any,i:number)=>({
-            id: d.id?.toString().startsWith('MWR')?d.id:`MWR81-${String(1000+i).padStart(4,'0')}`,
-            name: d.nama||d.name||'Tanpa Nama', rt: d.rt||'', hp: d.telepon||d.hp||'-',
-            lomba: typeof d.lomba==='string'?d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean):Array.isArray(d.lomba)?d.lomba:[],
+          const mapped: Participant[] = data.map((d:any)=>({
+            id: `MWR81-${String(d.id).slice(-4).padStart(4,'0')}`, name: d.nama||'Tanpa Nama', rt: d.rt||'', hp: d.telepon||'-',
+            lomba: typeof d.lomba==='string'?d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean):[],
             catatan: d.catatan||'', waktu: d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'),
-            createdAt: d.created_at?new Date(d.created_at).getTime():Date.now()
-          })).filter(p=>p.rt && p.rt!=='-' && !p.hp.includes('81991176369'));
-          if (mapped.length) {
-            setParticipants(prev=>{
-              const merged=[...mapped];
-              prev.forEach(local=>{ if(!mapped.some(m=>m.hp===local.hp && m.lomba.join(',')===local.lomba.join(','))) merged.push(local); });
-              return merged;
-            });
-          }
+            createdAt: Date.now()
+          }));
+          if (mapped.length) setParticipants(prev=>{ const merged=[...mapped]; prev.forEach(l=>{ if(!mapped.some(m=>m.hp===l.hp && m.lomba.join(',')===l.lomba.join(','))) merged.push(l); }); return merged.slice(0,100); });
         }
-        try{
-          const { data: donData } = await supabase.from('donasi').select('*').order('created_at',{ascending:false}).limit(200);
-          if (donData && donData.length) {
-            setDonors(prev=>{
-              const mapped=donData.map((d:any)=>({ id:d.id, name:d.nama||d.name||'Hamba Allah', alamat:d.alamat||'', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon }));
-              const merged=[...mapped];
-              prev.forEach(l=>{ if(!mapped.some((m:any)=>m.id===l.id)) merged.push(l); });
-              return merged;
-            });
-          }
-        }catch{}
-        try{
-          let pendData:any=null;
-          try{
-            const r1 = await supabase.from('keuangan').select('*').order('created_at',{ascending:true}).limit(200);
-            if (r1.data && r1.data.length) pendData = r1.data.map((f:any)=>({ id:f.id, sumber:f.nama||f.sumber||'Dana', jumlah:Number(f.jumlah)||0, kategori:(f.jenis||f.kategori||'donasi'), status:'confirmed', metode:f.keterangan||'cash' }));
-          }catch{}
-          if (!pendData || pendData.length===0) {
-            const r2 = await supabase.from('pendanaan').select('*').order('created_at',{ascending:true}).limit(200);
-            if (r2.data && r2.data.length) pendData = r2.data.map((f:any)=>({ id:f.id, sumber:f.sumber||f.nama||'Dana', jumlah:Number(f.jumlah)||0, kategori:(f.kategori||f.jenis||'donasi'), status:'confirmed', metode:f.metode||'transfer' }));
-          }
-          if (pendData && pendData.length) {
-            setFunding(prev=>{
-              const merged=[...pendData];
-              prev.forEach(local=>{ if(!pendData!.some((m:any)=>m.sumber===local.sumber && m.jumlah===local.jumlah)) merged.push(local); });
-              return merged;
-            });
-          }
-        }catch{}
-        ch1 = supabase.channel('realtime-peserta').on('postgres_changes',{event:'INSERT', schema:'public', table:'pendaftar'},(p:any)=>{
-          const d=p.new; const np: Participant = { id:`MWR81-${String(Date.now()).slice(-4)}`, name:d.nama, rt:d.rt, hp:d.telepon, lomba:typeof d.lomba==='string'?d.lomba.split(','):d.lomba||[], catatan:d.catatan||'', waktu:new Date().toLocaleString('id-ID'), createdAt:Date.now() };
-          setParticipants(prev=> prev.some(x=>x.id===np.id)?prev:[np,...prev]);
-        }).subscribe();
       }catch{}
     })();
-    return ()=>{ try{ if(ch1) supabase.removeChannel(ch1); if(ch2) supabase.removeChannel(ch2); if(ch3) supabase.removeChannel(ch3); }catch{} };
   },[]);
 
   useEffect(()=>{ if(!live) return; const iv=setInterval(()=>setLastUpdate(new Date().toLocaleTimeString('id-ID')),4000); return()=>clearInterval(iv); },[live]);
 
-  // simulasi transaksi QRIS & Transfer realtime
-  useEffect(()=>{
-    if (!live) return;
-    const gen = setInterval(()=>{
-      if (Math.random() > 0.7) {
-        const metodeOpts: any[] = ['qris-dana','transfer-seabank','transfer-dana'];
-        const metode = metodeOpts[Math.floor(Math.random()*metodeOpts.length)];
-        const sumberMap: any = { 'qris-dana':'QRIS DANA 0813****5007', 'transfer-seabank':'SeaBank 901592977740', 'transfer-dana':'DANA 081364755007' };
-        const trx = { id:`TRX-${Date.now()}`, metode, nama:['Hamba Allah','Warga Blok Mawar','Donatur'][Math.floor(Math.random()*3)], jumlah:[25000,50000,100000,150000][Math.floor(Math.random()*4)], waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:sumberMap[metode] };
-        setTransaksi(prev=>[trx, ...prev].slice(0,30));
-        const nd: Donor = { id:`DON-${trx.id}`, name:trx.nama, alamat:trx.sumber, jumlah:trx.jumlah, pesan:`Via ${metode}`, waktu:trx.waktu, isAnon:trx.nama==='Hamba Allah' };
-        setDonors(prev=>[nd, ...prev].slice(0,100));
-      }
-    }, 20000);
-    return ()=>clearInterval(gen);
-  },[live]);
-
   const totalDana = useMemo(()=>{ const f = funding.length>0 ? funding : defaultFunding; return f.reduce((s,f)=>s+f.jumlah,0)+donors.reduce((s,d)=>s+d.jumlah,0); },[funding,donors]);
-
   const filtered = useMemo(()=> participants.filter(p=>{
     const ms=!search||p.name.toLowerCase().includes(search.toLowerCase())||p.id.toLowerCase().includes(search.toLowerCase())||p.rt.toLowerCase().includes(search.toLowerCase());
     const ml=filterLomba==='Semua'||p.lomba.some(l=>l.includes(filterLomba));
     const mr=filterRT==='Semua'||p.rt.includes(filterRT);
     return ms&&ml&&mr;
   }),[participants,search,filterLomba,filterRT]);
-
   const filteredLomba = useMemo(()=> LOMBA_DATA.filter(l=> filterKategori==='Semua'||l.kategori===filterKategori), [filterKategori]);
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -319,18 +227,12 @@ export default function App() {
     if(!formData.name.trim()||!formData.hp.trim()||!formData.rt.trim()){ alert('Lengkapi!'); return; }
     if(formData.lomba.length===0){ alert('Pilih lomba!'); return; }
     setIsSubmitting(true);
-    // allow multiple entry per same HP - generate unique ID by timestamp
     const newP: Participant = { id:`MWR81-${String(Date.now()).slice(-4)}`, name:formData.name.trim(), rt:formData.rt.trim(), hp:formData.hp.trim(), lomba:formData.lomba, catatan:formData.catatan||'Terdaftar via Web', waktu:new Date().toLocaleString('id-ID'), createdAt:Date.now() };
-    setParticipants(prev=>{
-      const updated=[newP, ...prev];
-      try{ localStorage.setItem('hutri-participants-mawar', JSON.stringify(updated)); localStorage.setItem('hutri-last-peserta', JSON.stringify(newP)); }catch{}
-      return updated;
-    });
+    setParticipants(prev=>{ const updated=[newP, ...prev]; try{ localStorage.setItem('hutri-participants-mawar', JSON.stringify(updated)); localStorage.setItem('hutri-last-peserta', JSON.stringify(newP)); }catch{} return updated; });
     setHighlightId(newP.id); setTimeout(()=>setHighlightId(null),4000);
     setFormData({ name:'', rt:'', hp:'', lomba:[], catatan:'' }); setShowRegister(false);
     try{ const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-peserta', data:newP }); setTimeout(()=>bc.close(),100); }catch{}
-    try{ window.dispatchEvent(new CustomEvent('hutri-new-peserta',{detail:newP})); }catch{}
-    (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('pendaftar').insert([{ nama:newP.name, telepon:newP.hp, rt:newP.rt, lomba:newP.lomba.join(', '), catatan:newP.catatan }]); }catch(e){ console.warn(e); } })();
+    (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('pendaftar').insert([{ nama:newP.name, telepon:newP.hp, rt:newP.rt, lomba:newP.lomba.join(', '), catatan:newP.catatan }]); }catch{} })();
     setTimeout(()=>setIsSubmitting(false),300);
   };
 
@@ -339,9 +241,9 @@ export default function App() {
     const amt=Number(donasiForm.jumlah); if(!amt||amt<1000){ alert('Minimal 1.000'); return; }
     const newD: Donor = { id:`DON-${Date.now()}`, name:donasiForm.isAnon?'Hamba Allah':donasiForm.name||'Hamba Allah', alamat:donasiForm.alamat, jumlah:amt, pesan:donasiForm.pesan, waktu:new Date().toLocaleString('id-ID'), isAnon:donasiForm.isAnon };
     setDonors(prev=>[newD, ...prev]);
-    try{ const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-donasi', data:newD }); bc.close(); }catch{}
+    setDonasiForm({ name:'', alamat:'', jumlah:'', pesan:'', isAnon:false });
     (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('donasi').insert([{ nama:newD.name, alamat:newD.alamat, jumlah:newD.jumlah, pesan:newD.pesan, is_anon:newD.isAnon }]); }catch{} })();
-    setDonasiForm({ name:'', alamat:'', jumlah:'', pesan:'', isAnon:false }); alert('Terima kasih! Donasi masuk realtime.');
+    alert('Terima kasih! Donasi masuk realtime.');
   };
 
   const loginPanitia = () => {
@@ -356,13 +258,8 @@ export default function App() {
       try{ localStorage.setItem('isPanitia','true'); localStorage.setItem('isOwner',String(isOwn)); localStorage.setItem('currentUser', JSON.stringify(found)); }catch{}
       setAdminTab(isOwn ? 'supabase' : 'overview');
       setTimeout(()=>document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}),200);
-    } else if (p.length>=3) {
-      // fallback biar tidak terkunci
-      const fake = { username: u, nama: u, role: 'panitia' };
-      setIsPanitia(true); setIsOwner(false); setCurrentUser(fake); setShowPanitiaLogin(false);
-      try{ localStorage.setItem('isPanitia','true'); localStorage.setItem('currentUser', JSON.stringify(fake)); }catch{}
     } else {
-      alert('Username / Password salah! Cek daftar:\nadmin/mawar81\nbayu/ketua2026!\naulia/bendahara2026!\nowner/owner81');
+      alert('Username / Password salah!\nPanitia: admin/mawar81, eka/pj2026!, bayu/ketua2026!, aulia/bendahara2026!, sugiono/wakil2026!, lani/sekretaris2026!, puput/bendahara2!\nOwner: owner/owner81');
     }
   };
 
@@ -371,17 +268,16 @@ export default function App() {
   const testSupabase = async () => { setSupabaseStatus('testing'); try { const { error } = await supabase.from('pendaftar').select('id').limit(1); if(error) throw error; setSupabaseStatus('ok'); } catch { setSupabaseStatus('fail'); } };
   const saveFunding = async () => {
     if(!newFunding.sumber||!newFunding.jumlah){ alert('Lengkapi'); return; }
-    const nf: any = { id:`f-${Date.now()}`, sumber:newFunding.sumber, jumlah:Number(newFunding.jumlah), kategori:newFunding.kategori, status:'confirmed', metode:newFunding.metode };
+    const nf:any = { id:`f-${Date.now()}`, sumber:newFunding.sumber, jumlah:Number(newFunding.jumlah), kategori:newFunding.kategori, status:'confirmed', metode:newFunding.metode };
     setFunding(prev=>[...prev, nf]);
     try { const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-funding', data:nf }); bc.close(); } catch {}
-    (async()=>{ try{ const admin=getSupabaseAdmin(); let { error } = await admin.from('keuangan').insert([{ nama:nf.sumber, jenis:nf.kategori, jumlah:nf.jumlah, keterangan:nf.metode, is_anon:false }]); if(error){ const { error: e2 } = await admin.from('pendanaan').insert([{ sumber:nf.sumber, jumlah:nf.jumlah, kategori:nf.kategori, metode:nf.metode, status:nf.status }]); if(e2) throw e2; } }catch(e:any){ alert('Gagal Supabase: '+ (e.message||e)); } })();
+    (async()=>{ try{ const admin=getSupabaseAdmin(); let { error } = await admin.from('keuangan').insert([{ nama:nf.sumber, jenis:nf.kategori, jumlah:nf.jumlah, keterangan:nf.metode, is_anon:false }]); if(error){ const { error: e2 } = await admin.from('pendanaan').insert([{ sumber:nf.sumber, jumlah:nf.jumlah, kategori:nf.kategori, metode:nf.metode, status:nf.status }]); if(e2) throw e2; } }catch(e:any){ alert('Gagal Supabase: '+(e.message||e)); } })();
     setNewFunding({ sumber:'', jumlah:'', kategori:'iuran', metode:'cash' });
   };
   const saveCashDonasi = async () => {
     if(!cashDonasi.nama||!cashDonasi.jumlah){ alert('Lengkapi'); return; }
-    const nd: Donor = { id:`DON-CASH-${Date.now()}`, name:cashDonasi.nama, alamat:'Cash via Panitia', jumlah:Number(cashDonasi.jumlah), pesan:`Cash ${cashDonasi.metode}`, waktu:new Date().toLocaleString('id-ID'), isAnon:false };
+    const nd:any = { id:`DON-CASH-${Date.now()}`, name:cashDonasi.nama, alamat:'Cash via Panitia', jumlah:Number(cashDonasi.jumlah), pesan:`Cash ${cashDonasi.metode}`, waktu:new Date().toLocaleString('id-ID'), isAnon:false };
     setDonors(prev=>[nd, ...prev]);
-    try { const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-donasi', data:nd }); bc.close(); } catch {}
     (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('donasi').insert([{ nama:nd.name, alamat:'Cash', jumlah:nd.jumlah, pesan:nd.pesan }]); }catch{} })();
     setCashDonasi({ nama:'', jumlah:'', metode:'cash' });
   };
@@ -390,12 +286,74 @@ export default function App() {
     return <GalleryPage onBack={()=>setShowGalleryPage(false)} />;
   }
 
+  if (showInventoryPage) {
+    return (
+      <div className="min-h-screen bg-[#FFFBF5] text-zinc-900">
+        <header className="sticky top-0 z-40 bg-[#B71C1C] border-b shadow"><div className="max-w-7xl mx-auto px-4 h-[48px] flex items-center gap-3 text-white"><button onClick={()=>setShowInventoryPage(false)} className="flex items-center gap-1.5 text-[12px] font-bold">‹ Kembali</button><div className="h-5 w-[1px] bg-white/20" /><div className="font-bold text-[13px]">📦 Inventory Peralatan Panitia</div></div></header>
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex justify-between items-end"><div><h1 className="text-[28px] font-black">INVENTORY PERALATAN</h1><p className="text-[12px] text-zinc-500">Kelola peralatan & aksesoris panitia — bisa input/edit via Admin Panitia</p></div><button onClick={()=>{ if(!isPanitia){ setShowPanitiaLogin(true); return; } setAdminTab('inventory'); setShowInventoryPage(false); setTimeout(()=>document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}),200); }} className="h-9 px-4 rounded-full bg-[#C1272D] text-white text-[12px] font-bold">🔧 Kelola di Admin</button></div>
+          <div className="mt-6 grid md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {inventory.map(it=>(
+              <div key={it.id} className="bg-white rounded-2xl border p-4 shadow-sm"><div className="flex justify-between"><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kategori==='peralatan'?'bg-blue-50 text-blue-600':it.kategori==='aksesoris'?'bg-pink-50 text-pink-600':it.kategori==='sound'?'bg-purple-50 text-purple-600':'bg-zinc-100'}`}>{it.kategori}</span><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kondisi==='baik'?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}`}>{it.kondisi}</span></div><h4 className="mt-3 font-bold text-[14px]">{it.nama}</h4><div className="mt-2 text-[11px] space-y-1"><div>Jumlah: <b>{it.jumlah}</b></div><div>Lokasi: {it.lokasi}</div><div>PJ: {it.penanggungJawab}</div></div></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showArchivePage) {
+    return (
+      <div className="min-h-screen bg-[#FFFBF5]">
+        <header className="sticky top-0 z-40 bg-[#B71C1C] border-b shadow"><div className="max-w-7xl mx-auto px-4 h-[48px] flex items-center gap-3 text-white"><button onClick={()=>setShowArchivePage(false)} className="text-[12px] font-bold">‹ Kembali</button><div className="font-bold text-[13px]">📚 Arsip Perayaan HUT RI</div></div></header>
+        <div className="max-w-5xl mx-auto px-4 py-10">
+          <h1 className="text-[28px] font-black text-center">ARSIP PERAYAAN HUT RI</h1><p className="text-center text-[12px] text-zinc-500 mt-1">Website reusable tiap tahun — data otomatis masuk ke kolom terpisah per tahun</p>
+          <div className="mt-8 grid md:grid-cols-3 gap-4">
+            {archive.map(a=>(
+              <div key={a.tahun} className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition">
+                <div className="h-10 w-10 rounded-xl bg-[#C1272D] text-white grid place-items-center font-black">{a.tahun}</div>
+                <h3 className="mt-3 font-black text-[15px]">{a.tema}</h3>
+                <p className="text-[11px] text-zinc-500 mt-1">{a.deskripsi}</p>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]"><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{a.peserta}</div><div>Peserta</div></div><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{a.lomba}</div><div>Lomba</div></div><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{(a.dana/1000000).toFixed(0)}jt</div><div>Dana</div></div></div>
+              </div>
+            ))}
+          </div>
+          {isOwner && (
+            <div className="mt-8 bg-white rounded-2xl border p-5">
+              <h4 className="font-black text-[13px]">Tambah Tahun Baru (Owner)</h4>
+              <div className="mt-3 grid md:grid-cols-5 gap-2">
+                <input id="arch-tahun" type="number" placeholder="Tahun" className="h-10 px-3 rounded-xl border text-[12px]" />
+                <input id="arch-tema" placeholder="Tema" className="h-10 px-3 rounded-xl border text-[12px]" />
+                <input id="arch-peserta" type="number" placeholder="Peserta" className="h-10 px-3 rounded-xl border text-[12px]" />
+                <input id="arch-dana" type="number" placeholder="Dana" className="h-10 px-3 rounded-xl border text-[12px]" />
+                <button onClick={()=>{
+                  const tahun = Number((document.getElementById('arch-tahun') as HTMLInputElement).value);
+                  const tema = (document.getElementById('arch-tema') as HTMLInputElement).value;
+                  const peserta = Number((document.getElementById('arch-peserta') as HTMLInputElement).value);
+                  const dana = Number((document.getElementById('arch-dana') as HTMLInputElement).value);
+                  if(!tahun||!tema) return alert('Lengkapi');
+                  setArchive([{ tahun, tema, peserta: peserta||0, dana: dana||0, lomba: LOMBA_DATA.length, deskripsi: `Perayaan HUT RI ke-${tahun-1945}` }, ...archive]);
+                }} className="h-10 rounded-xl bg-[#C1272D] text-white font-bold text-[12px]">Tambah Tahun</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FFF8F3] text-zinc-900 overflow-x-hidden">
       <header className="sticky top-0 z-40 bg-[#C1272D] border-b border-white/10">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 h-[56px] flex items-center justify-between text-white">
           <div className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-full bg-white text-[#C1272D] grid place-items-center font-black text-[12px]">81</div><div className="leading-none"><div className="font-black text-[11px]">HUT RI Ke-81</div><div className="text-[9px] opacity-80">Ciptaland Blok Mawar</div></div></div>
-          <nav className="hidden lg:flex items-center gap-5 text-[12px] font-medium"><a href="#hero">Beranda</a><a href="#panitia">Ringkasan</a><a href="#lomba">Lomba</a><button onClick={()=>setShowGalleryPage(true)} className="hover:text-yellow-200">Galeri</button><a href="#rundown">Jadwal</a><a href="#admin">Admin</a></nav>
+          <nav className="hidden lg:flex items-center gap-4 text-[11px] font-bold">
+            <a href="#hero">Beranda</a><a href="#panitia">Ringkasan</a><a href="#lomba">Lomba</a>
+            <button onClick={()=>setShowGalleryPage(true)} className="hover:text-yellow-200">Galeri</button>
+            <button onClick={()=>setShowInventoryPage(true)} className="hover:text-yellow-200">Inventory</button>
+            <button onClick={()=>setShowArchivePage(true)} className="hover:text-yellow-200">Arsip HUT</button>
+            <a href="#rundown">Jadwal</a><a href="#admin">Admin</a>
+          </nav>
           <div className="flex items-center gap-2">
             <button onClick={()=>{ if(isPanitia) document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}); else setShowPanitiaLogin(true); }} className={`h-8 px-3 rounded-full text-[11px] font-bold border ${isPanitia?'bg-emerald-500 text-white border-emerald-400':'bg-black/20 border-white/20'}`}>
               {isPanitia ? `✅ ${currentUser?.nama||'Panitia'}` : '🔒 Panitia'}
@@ -411,9 +369,8 @@ export default function App() {
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/20 px-3 py-1 rounded-full text-[10px] font-bold">Dirgahayu Republik Indonesia</div>
           <h1 className="mt-6 text-[40px] md:text-[54px] font-black leading-[0.85] tracking-tight">HUT KEMERDEKAAN<br/><span className="text-[#FFD23F]">RI KE-81</span></h1>
           <p className="mt-4 text-[13px] font-medium">Perumahan <b>Ciptaland Blok Mawar</b><br/>RT 002 / RW 014</p>
-          <div className="mt-6 flex justify-center"><span className="bg-white/10 px-4 py-1.5 rounded-full border border-white/15 text-[11px] font-bold">🎉 Menuju Hari Kemerdekaan 🎉</span></div>
           <div className="mt-5 flex justify-center gap-2">{[{v:countdown.hari,l:'HARI'},{v:countdown.jam,l:'JAM'},{v:countdown.menit,l:'MENIT'},{v:countdown.detik,l:'DETIK'}].map(c=>(<div key={c.l} className="bg-white/15 border border-white/15 rounded-xl w-[62px] py-2.5"><div className="text-[22px] font-black leading-none">{String(c.v).padStart(2,'0')}</div><div className="text-[8px] font-bold opacity-70 mt-1">{c.l}</div></div>))}</div>
-          <div className="mt-6 flex justify-center gap-3"><button onClick={()=>setShowRegister(true)} className="h-10 px-6 rounded-full bg-white text-[#C1272D] font-black text-[13px]">Daftar Lomba →</button><a href="#lomba" className="h-10 px-6 rounded-full border-2 border-white/40 text-white font-bold text-[13px] flex items-center">Lihat Lomba</a></div>
+          <div className="mt-6 flex justify-center gap-3"><button onClick={()=>setShowRegister(true)} className="h-10 px-6 rounded-full bg-white text-[#C1272D] font-black text-[13px]">Daftar Lomba →</button><button onClick={()=>setShowGalleryPage(true)} className="h-10 px-6 rounded-full border-2 border-white/40 text-white font-bold text-[13px]">Lihat Galeri</button></div>
           <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
             <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">50K/KK</div><div className="text-[9px] opacity-80">Partisipasi Warga /KK</div></div>
             <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">{LOMBA_DATA.length}+</div><div className="text-[9px] opacity-80">Kategori Lomba</div></div>
@@ -423,24 +380,21 @@ export default function App() {
         </div>
       </section>
 
-      {/* TRANSAKSI KEUANGAN REALTIME */}
       <section id="transaksi-realtime" className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="bg-zinc-900 rounded-[20px] border border-zinc-800 shadow-xl overflow-hidden">
           <div className="p-4 md:p-5 flex flex-wrap justify-between gap-3 items-center border-b border-white/10">
-            <div><h3 className="font-black text-[14px] text-white flex items-center gap-2"><span className="h-7 w-7 rounded-full bg-emerald-500 grid place-items-center">💳</span> Transaksi Keuangan Realtime — QRIS Dana & Transfer Bank <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /></h3><p className="text-[11px] text-white/60 mt-1">Setiap transaksi via QRIS DANA / SeaBank / DANA langsung terkoneksi & sinkron ke Total Dana, Donasi, dan Panel Panitia.</p></div>
+            <div><h3 className="font-black text-[14px] text-white flex items-center gap-2"><span className="h-7 w-7 rounded-full bg-emerald-500 grid place-items-center">💳</span> Transaksi Keuangan Realtime — QRIS Dana & Transfer Bank <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /></h3><p className="text-[11px] text-white/60 mt-1">Donatur / Sponsor / Donasi — Setiap transaksi via QRIS DANA / SeaBank / DANA langsung terkoneksi ke Total Dana, Donasi, dan Panel Panitia.</p></div>
             <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {transaksi.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Total: {formatRupiah(transaksi.reduce((s:any,t:any)=>s+(t.jumlah||0),0))}</span></div>
           </div>
-          <div className="p-4">
-            <div className="grid md:grid-cols-3 gap-3">
-              <div className="bg-white rounded-xl p-3 border"><div className="text-[11px] font-black">Donatur</div><div className="text-[20px] font-black text-[#C1272D]">{donors.length}</div><div className="text-[10px] text-zinc-500">Total donatur terdaftar</div></div>
-              <div className="bg-white rounded-xl p-3 border"><div className="text-[11px] font-black">Sponsor</div><div className="text-[20px] font-black text-blue-600">{funding.filter(f=>f.kategori==='sponsor').length}</div><div className="text-[10px] text-zinc-500">Mitra sponsor lokal</div></div>
-              <div className="bg-white rounded-xl p-3 border"><div className="text-[11px] font-black">Donasi</div><div className="text-[16px] font-black text-emerald-700">{formatRupiah(donors.reduce((s,d)=>s+d.jumlah,0)+funding.filter(f=>f.kategori==='donasi').reduce((s,f)=>s+f.jumlah,0))}</div><div className="text-[10px] text-zinc-500">Total donasi terkumpul</div></div>
-            </div>
+          <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-3 gap-4 border-b border-white/10">
+            <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-[11px] font-bold text-zinc-500">Donatur</div><div className="text-[22px] font-black text-[#C1272D]">{donors.length + funding.filter(f=>f.kategori==='donatur').length}</div><div className="text-[10px] text-zinc-500">Total donatur terdaftar</div></div>
+            <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-[11px] font-bold text-zinc-500">Sponsor</div><div className="text-[22px] font-black text-blue-600">{funding.filter(f=>f.kategori==='sponsor').length}</div><div className="text-[10px] text-zinc-500">Mitra sponsor lokal</div></div>
+            <div className="bg-white rounded-xl p-4 shadow-sm"><div className="text-[11px] font-bold text-zinc-500">Donasi</div><div className="text-[18px] font-black text-emerald-600">{formatRupiah(funding.filter(f=>f.kategori==='donasi'||f.kategori==='donasi_online'||f.kategori==='donasi_cash').reduce((s,f)=>s+f.jumlah,0) + donors.reduce((s,d)=>s+d.jumlah,0) + transaksi.reduce((s:any,t:any)=>s+(t.jumlah||0),0))}</div><div className="text-[10px] text-zinc-500">Total donasi terkumpul</div></div>
           </div>
           <div className="grid md:grid-cols-3 gap-px bg-white/10">
-            <div className="bg-[#121212] p-4"><div className="text-[10px] font-bold tracking-widest uppercase text-zinc-500">QRIS DANA</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter((t:any)=>t.metode==='qris-dana').slice(0,6).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex justify-between items-center"><div><div className="font-bold text-[11px] text-white">{t.nama}</div><div className="text-[10px] text-white/50">{t.sumber}</div></div><div className="font-mono font-black text-[11px] text-emerald-400">{formatRupiah(t.jumlah)}</div></div>))}</div></div>
-            <div className="bg-[#121212] p-4"><div className="text-[10px] font-bold tracking-widest uppercase text-zinc-500">TRANSFER SEABANK</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter((t:any)=>t.metode==='transfer-seabank').slice(0,6).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex justify-between items-center"><div><div className="font-bold text-[11px] text-white">{t.nama}</div><div className="text-[10px] text-white/50">{t.sumber}</div></div><div className="font-mono font-black text-[11px] text-blue-400">{formatRupiah(t.jumlah)}</div></div>))}</div></div>
-            <div className="bg-[#121212] p-4"><div className="text-[10px] font-bold tracking-widest uppercase text-zinc-500">TRANSFER DANA</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter((t:any)=>t.metode==='transfer-dana').slice(0,6).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex justify-between items-center"><div><div className="font-bold text-[11px] text-white">{t.nama}</div><div className="text-[10px] text-white/50">{t.sumber}</div></div><div className="font-mono font-black text-[11px] text-yellow-300">{formatRupiah(t.jumlah)}</div></div>))}</div></div>
+            {[{label:'QRIS DANA',metode:'qris-dana',color:'emerald'},{label:'TRANSFER SEABANK',metode:'transfer-seabank',color:'blue'},{label:'TRANSFER DANA',metode:'transfer-dana',color:'yellow'}].map(col=>(
+              <div key={col.metode} className="bg-[#121212] p-4"><div className="text-[10px] font-bold tracking-widest uppercase text-zinc-500">{col.label}</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter((t:any)=>t.metode===col.metode).slice(0,6).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex justify-between items-center"><div><div className="font-bold text-[11px] text-white">{t.nama}</div><div className="text-[10px] text-white/50">{t.sumber}</div></div><div className="font-mono font-black text-[11px] text-emerald-400">{formatRupiah(t.jumlah)}</div></div>))}{transaksi.filter((t:any)=>t.metode===col.metode).length===0 && <div className="text-[11px] text-white/40 py-6 text-center">Belum ada transaksi</div>}</div></div>
+            ))}
           </div>
         </div>
       </section>
@@ -452,7 +406,7 @@ export default function App() {
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
         <div className="bg-white rounded-2xl border p-6 shadow-sm"><div className="px-3 py-1 bg-[#C1272D]/10 text-[#C1272D] rounded-full text-[10px] font-black inline-block uppercase">TENTANG ACARA</div><h3 className="mt-3 text-[20px] font-black">Merayakan Kemerdekaan Bersama</h3><p className="mt-3 text-[13px] leading-6 text-zinc-600">Dalam rangka memeriahkan HUT RI ke-81, warga Ciptaland Blok Mawar RT 002 RW 014 akan mengadakan berbagai kegiatan seru penuh kebersamaan.</p><div className="mt-5 grid grid-cols-2 gap-3">{[{e:'🤝',t:'Kebersamaan',d:'Mempererat silaturahmi'},{e:'🎉',t:'Kemeriahan',d:'Berbagai lomba seru'},{e:'🏆',t:'Hadiah',d:'Total jutaan rupiah'},{e:'🇮🇩',t:'Nasionalisme',d:'Semangat kemerdekaan'}].map(it=>(<div key={it.t} className="bg-[#FFF7ED] border rounded-xl p-3"><div className="text-[18px]">{it.e}</div><div className="font-bold text-[12px] mt-1">{it.t}</div><div className="text-[11px] text-zinc-500">{it.d}</div></div>))}</div></div>
-        <div className="bg-[#C1272D] rounded-2xl p-6 text-white shadow-lg"><h4 className="font-black">🎊 Informasi Acara</h4><div className="mt-5 space-y-4 text-[13px]"><div className="flex gap-3"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📅</div><div><div className="font-bold">Tanggal</div><div className="opacity-90">Minggu, 17 Agustus 2026</div></div></div><div className="flex gap-3"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">⏰</div><div><div className="font-bold">Waktu</div><div className="opacity-90">06:00 - 22:00 WIB</div></div></div><div className="flex gap-3"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📍</div><div><div className="font-bold">Lokasi</div><div className="opacity-90">Perumahan Ciptaland Blok Mawar<br/>RT 002 / RW 014</div></div></div><div className="flex gap-3"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">👥</div><div><div className="font-bold">Peserta</div><div className="opacity-90">Seluruh Warga & Keluarga</div></div></div></div></div>
+        <div className="bg-[#C1272D] rounded-2xl p-6 text-white shadow-lg sticky top-[72px] self-start"><h4 className="font-black flex items-center gap-2">🎊 Informasi Acara</h4><p className="text-[11px] opacity-70 mt-1">Static & Interaktif — klik untuk aksi</p><div className="mt-5 space-y-3 text-[13px]"><button onClick={()=>{ const d=new Date('2026-08-17T06:00:00'); alert('Tanggal: Minggu, 17 Agustus 2026 ditambahkan ke kalender (simulasi)'); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📅</div><div><div className="font-bold">Tanggal</div><div className="opacity-90">Minggu, 17 Agustus 2026</div><div className="text-[10px] opacity-60">Klik untuk tambah kalender</div></div></button><button onClick={()=>{ const h=new Date().getHours(); alert(`Waktu: 06:00 - 22:00 WIB — Sekarang jam ${h} WIB`); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">⏰</div><div><div className="font-bold">Waktu</div><div className="opacity-90">06:00 - 22:00 WIB</div><div className="text-[10px] opacity-60">Klik untuk cek waktu</div></div></button><button onClick={()=>{ window.open('https://maps.google.com/?q=Perumahan+Ciptaland+Blok+Mawar','_blank'); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📍</div><div><div className="font-bold">Lokasi</div><div className="opacity-90">Perumahan Ciptaland Blok Mawar<br/>RT 002 / RW 014</div><div className="text-[10px] opacity-60">Klik untuk buka Maps</div></div></button><button onClick={()=>{ if(navigator.share){ navigator.share({ title:'HUT RI 81 Blok Mawar', text:'Yuk ikut kemerdekaan!', url:location.href }).catch(()=>{}); } else { navigator.clipboard.writeText(location.href); alert('Link disalin!'); } }} className="w-full flex gap-3 items-center bg-white/15 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">👥</div><div><div className="font-bold">Peserta</div><div className="opacity-90">Seluruh Warga & Keluarga ({participants.length} terdaftar)</div><div className="text-[10px] opacity-60">Klik untuk bagikan</div></div></button></div></div>
       </section>
 
       <section id="lomba" className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -477,15 +431,15 @@ export default function App() {
           <div className="absolute inset-0"><div className="absolute -top-24 -left-24 h-[420px] w-[420px] bg-white/10 rounded-full blur-[60px]" /><div className="absolute -bottom-32 -right-32 h-[520px] w-[520px] bg-black/20 rounded-full blur-[80px]" /></div>
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 text-white">
-              <div><div className="inline-flex items-center gap-2 bg-white text-[#C1272D] px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#C1272D]"></span></span>LIVE • REAL-TIME</div><h2 className="mt-4 text-[28px] md:text-[40px] font-black leading-[0.9] tracking-tighter">TABEL REAL-TIME<br/><span className="font-serif italic font-light opacity-90">DAFTAR PESERTA</span></h2><p className="mt-3 text-[12px] md:text-[13px] leading-6 opacity-85 max-w-[56ch]">Data peserta terupdate otomatis. Setiap peserta bisa daftar lebih dari 1 lomba menggunakan nama, no telp dan no rumah yang sama — tidak diblok duplikat.</p></div>
-              <div className="flex flex-wrap gap-3"><div className="bg-white/15 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 min-w-[130px]"><div className="text-[9px] font-bold tracking-widest uppercase opacity-70">TOTAL PESERTA</div><div className="text-2xl font-black leading-none mt-1">{participants.length}</div><div className="text-[10px] opacity-70 mt-1">✓ 13 data contoh sesuai request</div></div><div className="bg-white text-[#C1272D] rounded-2xl px-4 py-3 min-w-[160px] shadow-xl"><div className="text-[9px] font-bold tracking-widest uppercase opacity-60">UPDATE TERAKHIR</div><div className="text-[12px] font-black mt-1 font-mono">{lastUpdate} WIB</div><div className="flex items-center gap-1.5 mt-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /><span className="text-[10px] font-bold text-zinc-600">Sinkron • {live?'ON':'OFF'}</span></div></div></div>
+              <div><div className="inline-flex items-center gap-2 bg-white text-[#C1272D] px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#C1272D]"></span></span>LIVE • REAL-TIME</div><h2 className="mt-4 text-[28px] md:text-[40px] font-black leading-[0.9] tracking-tighter">TABEL REAL-TIME<br/><span className="font-serif italic font-light opacity-90">DAFTAR PESERTA</span></h2><p className="mt-3 text-[12px] md:text-[13px] leading-6 opacity-85 max-w-[56ch]">Setiap peserta bisa daftar lebih dari 1 lomba menggunakan nama, no telp dan no rumah yang sama — tidak diblok duplikat. Edit di admin langsung replace.</p></div>
+              <div className="flex flex-wrap gap-3"><div className="bg-white/15 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 min-w-[130px]"><div className="text-[9px] font-bold tracking-widest uppercase opacity-70">TOTAL PESERTA</div><div className="text-2xl font-black leading-none mt-1">{participants.length}</div></div><div className="bg-white text-[#C1272D] rounded-2xl px-4 py-3 min-w-[160px] shadow-xl"><div className="text-[9px] font-bold tracking-widest uppercase opacity-60">UPDATE TERAKHIR</div><div className="text-[12px] font-black mt-1 font-mono">{lastUpdate} WIB</div></div></div>
             </div>
             <div className="mt-8 bg-white rounded-[20px] shadow-[0_24px_64px_-16px_rgba(0,0,0,.5)] border overflow-hidden">
               <div className="p-4 md:p-5 bg-[#FFFBF2] border-b border-zinc-200 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
                 <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
                   <div className="relative flex-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-[12px]">🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari Nama, ID, atau RT / Blok..." className="w-full h-10 pl-9 pr-4 rounded-full bg-white border border-zinc-200 text-[13px] font-medium" /></div>
                   <select value={filterLomba} onChange={e=>setFilterLomba(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua Lomba</option>{LOMBA_DATA.map(l=><option key={l.id} value={l.title}>{l.title}</option>)}</select>
-                  <select value={filterRT} onChange={e=>setFilterRT(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua RT</option><option value="RT 002">RT 002</option><option value="Mawar 83">Mawar 83</option><option value="Mawar 127">Mawar 127</option></select>
+                  <select value={filterRT} onChange={e=>setFilterRT(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua RT</option><option value="RT 002">RT 002</option><option value="Mawar 83">Mawar 83</option></select>
                 </div>
                 <div className="flex items-center gap-2"><button onClick={()=>setLive(!live)} className={`h-10 px-4 rounded-full text-[11px] font-black border ${live?'bg-emerald-600 text-white border-emerald-600':'bg-white text-zinc-600 border-zinc-200'}`}>{live?'LIVE ON':'OFF'}</button><button onClick={exportCSV} className="h-10 px-4 rounded-full bg-zinc-900 text-white text-[11px] font-black">📥 Export CSV</button></div>
               </div>
@@ -531,77 +485,39 @@ export default function App() {
           ))}
         </div>
         <div className="mt-8"><h3 className="font-bold text-[14px]">Anggota Panitia Lainnya</h3><div className="mt-3 grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {PANITIA_LAIN.map(m=>(
+          {[
+            { nama:'Lani', jabatan:'Sekretaris', hp:'0813-7116-2792' },
+            { nama:'Aulia Komari', jabatan:'Bendahara 1', hp:'0812-3456-7892' },
+            { nama:'Puput', jabatan:'Bendahara 2', hp:'0831-8330-3884' },
+            { nama:'Aryo', jabatan:'Runner', hp:'0856-0134-31284' },
+            { nama:'M.Dzaki', jabatan:'MC', hp:'0858-3660-5110' },
+            { nama:'Lukman', jabatan:'MC', hp:'0853-xxx-xxx' },
+            { nama:'Agha', jabatan:'Koordinator Lomba', hp:'0851-9433-4760' },
+            { nama:'Adib', jabatan:'Koordinator Lomba', hp:'0813-6365-2626' },
+            { nama:'Hanif', jabatan:'Koordinator Lomba', hp:'0881-3712-0796' },
+            { nama:'Satria', jabatan:'Koordinator Lomba', hp:'0819-9201-0197' },
+            { nama:'Ridho Ananda', jabatan:'Koordinator Lomba', hp:'0823-8718-8929' },
+            { nama:'Andre', jabatan:'Koordinator Lomba', hp:'08xx-xxx-xxx' },
+            { nama:'Dio', jabatan:'Koordinator Lomba', hp:'0813-7112-100' },
+            { nama:'Reza', jabatan:'Koordinator Lomba', hp:'08xx-xxx-xxx' },
+          ].map(m=>(
             <div key={m.nama} className="bg-white rounded-xl border p-3 text-center shadow-sm"><div className="h-10 w-10 mx-auto rounded-full bg-zinc-100 grid place-items-center">👤</div><div className="font-bold text-[12px] mt-2">{m.nama}</div><div className="text-[10px] text-zinc-500">{m.jabatan}</div><div className="text-[10px] mt-1">📞 {m.hp}</div><a href={`https://wa.me/${m.hp.replace(/\D/g,'')}`} target="_blank" className="mt-2 inline-flex h-5 w-5 rounded-full bg-green-100 text-green-600 grid place-items-center text-[10px]">💬</a></div>
           ))}
         </div></div>
       </section>
 
-      <div className="fixed bottom-4 right-4 z-40">
-        <div className="flex flex-col items-end gap-2">
-          {showWA && (<div className="mb-2 bg-white rounded-2xl shadow-xl border p-3 w-[260px] space-y-2"><div className="text-[11px] font-black uppercase">Hubungi Panitia</div>{[{label:'Penanggung Jawab',hp:'0821-7129-9984'},{label:'Ketua Panitia',hp:'0812-8839-5550'},{label:'Wakil Ketua',hp:'0831-8395-0205'}].map(c=>(<a key={c.hp} href={`https://wa.me/${c.hp.replace(/\D/g,'')}`} target="_blank" className="flex justify-between items-center bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl p-2.5"><span className="text-[11px] font-bold text-zinc-700">{c.label}<br/><span className="font-mono">{c.hp}</span></span><span className="h-8 w-8 rounded-full bg-[#25D366] text-white grid place-items-center"><svg viewBox="0 0 24 24" className="h-5 w-5 fill-white"><path d="M19.11 4.93C16.66 2.48 13.44 1.04 10.05 1c-6.87 0-12.47 5.6-12.47 12.47 0 2.19.57 4.33 1.66 6.22L0 24l4.49-1.18a12.38 12.38 0 005.56 1.33h.01c6.87 0 12.47-5.6 12.47-12.47 0-3.33-1.3-6.46-3.65-8.81l-.77-.14zM10.05 21.3a10.3 10.3 0 01-5.25-1.44l-.38-.22-2.67.7.7-2.6-.24-.4a10.24 10.24 0 01-1.58-5.57c0-5.66 4.61-10.27 10.28-10.27 2.75 0 5.33 1.07 7.27 3.02a10.2 10.2 0 013.02 7.27c0 5.66-4.61 10.27-10.27 10.27l-.88-.04zm5.64-7.62c-.31-.15-1.83-.9-2.11-1-.28-.1-.48-.16-.68.15-.2.31-.78 1-.96 1.2-.18.2-.36.23-.67.08-.31-.15-1.3-.48-2.47-1.53-.91-.81-1.53-1.81-1.71-2.12-.18-.31-.02-.48.13-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.51.1-.2.05-.38-.02-.54-.08-.15-.68-1.64-.93-2.24-.25-.59-.5-.51-.68-.52h-.58c-.2 0-.54.08-.82.38-.28.31-1.07 1.04-1.07 2.54s1.1 2.94 1.25 3.15c.15.2 2.16 3.3 5.23 4.63.73.31 1.3.5 1.75.64.73.23 1.4.2 1.93.12.59-.09 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36z"/></svg></span></a>))}</div>)}
-          <button onClick={()=>setShowWA(!showWA)} className="h-14 w-14 rounded-full bg-[#25D366] shadow-[0_8px_24px_rgba(37,211,102,0.4)] grid place-items-center hover:scale-105 transition">
-            <svg viewBox="0 0 24 24" className="h-7 w-7 fill-white"><path d="M19.11 4.93C16.66 2.48 13.44 1.04 10.05 1c-6.87 0-12.47 5.6-12.47 12.47 0 2.19.57 4.33 1.66 6.22L0 24l4.49-1.18a12.38 12.38 0 005.56 1.33h.01c6.87 0 12.47-5.6 12.47-12.47 0-3.33-1.3-6.46-3.65-8.81l-.77-.14zM10.05 21.3a10.3 10.3 0 01-5.25-1.44l-.38-.22-2.67.7.7-2.6-.24-.4a10.24 10.24 0 01-1.58-5.57c0-5.66 4.61-10.27 10.28-10.27 2.75 0 5.33 1.07 7.27 3.02a10.2 10.2 0 013.02 7.27c0 5.66-4.61 10.27-10.27 10.27l-.88-.04zm5.64-7.62c-.31-.15-1.83-.9-2.11-1-.28-.1-.48-.16-.68.15-.2.31-.78 1-.96 1.2-.18.2-.36.23-.67.08-.31-.15-1.3-.48-2.47-1.53-.91-.81-1.53-1.81-1.71-2.12-.18-.31-.02-.48.13-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.51.1-.2.05-.38-.02-.54-.08-.15-.68-1.64-.93-2.24-.25-.59-.5-.51-.68-.52h-.58c-.2 0-.54.08-.82.38-.28.31-1.07 1.04-1.07 2.54s1.1 2.94 1.25 3.15c.15.2 2.16 3.3 5.23 4.63.73.31 1.3.5 1.75.64.73.23 1.4.2 1.93.12.59-.09 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36z"/></svg>
-          </button>
-        </div>
-      </div>
-
-      {showRegister && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowRegister(false)} />
-          <div className="relative w-full max-w-[520px] bg-white rounded-t-[24px] sm:rounded-[24px] max-h-[92vh] overflow-y-auto p-5">
-            <div className="flex justify-between"><div><h3 className="font-black">Daftar Lomba HUT RI 81</h3><p className="text-[11px] text-emerald-600 font-bold">Bisa daftar lebih dari 1 lomba — pakai nama, no telp dan no rumah yang sama</p></div><button onClick={()=>setShowRegister(false)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
-            <form onSubmit={handleRegister} className="mt-4 space-y-3">
-              <input required value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} placeholder="Nama Lengkap *" className="w-full h-11 px-4 rounded-xl border text-[13px]" />
-              <div className="grid grid-cols-2 gap-2"><input required value={formData.hp} onChange={e=>setFormData({...formData, hp:e.target.value})} placeholder="No Telp / WA *" className="h-11 px-4 rounded-xl border text-[13px]" /><input required value={formData.rt} onChange={e=>setFormData({...formData, rt:e.target.value})} placeholder="No Rumah / RT 002 / Blok *" className="h-11 px-4 rounded-xl border text-[13px]" /></div>
-              <div className="text-[11px] font-bold uppercase">Pilih Lomba — bisa lebih dari 1 ({formData.lomba.length})</div>
-              <div className="grid gap-1.5 max-h-[180px] overflow-y-auto p-1">{LOMBA_DATA.map(l=>(<label key={l.id} className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer text-[12px] ${formData.lomba.includes(l.title)?'bg-[#F9E2E2] border-[#C1272D] font-bold text-[#C1272D]':'bg-zinc-50 border-zinc-200'}`}><input type="checkbox" checked={formData.lomba.includes(l.title)} onChange={e=>{ if(e.target.checked) setFormData({...formData, lomba:[...formData.lomba,l.title]}); else setFormData({...formData, lomba:formData.lomba.filter(x=>x!==l.title)}); }} />{l.title}</label>))}</div>
-              <button type="submit" disabled={isSubmitting} className={`w-full h-11 rounded-full font-black text-[13px] flex items-center justify-center gap-2 ${isSubmitting?'bg-zinc-300 text-zinc-600':'bg-[#C1272D] text-white'}`}>{isSubmitting?'⏳ Mendaftarkan...':'✅ Daftar Lomba (Bisa Lebih dari 1)'}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showLomba && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowLomba(null)} /><div className="relative w-full max-w-[420px] bg-white rounded-[20px] p-5"><div className="flex justify-between"><div className="h-12 w-12 rounded-2xl bg-[#F9E2E2] text-[#C1272D] grid place-items-center text-xl">{showLomba.emoji}</div><button onClick={()=>setShowLomba(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div><h3 className="mt-4 font-black text-[18px]">{showLomba.title}</h3><p className="text-[13px] text-zinc-600 mt-1">{showLomba.deskripsi}</p><div className="mt-4 grid grid-cols-3 gap-2 text-[11px]"><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>⏰</div><div className="font-bold">{showLomba.waktu}</div></div><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>🏆</div><div className="font-bold">{showLomba.hadiah}</div></div><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>👥</div><div className="font-bold">{showLomba.peserta}</div></div></div><div className="mt-5 flex gap-2"><button onClick={()=>setShowLomba(null)} className="flex-1 h-10 rounded-full bg-zinc-100 border font-bold text-[12px]">Tutup</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:[...f.lomba,showLomba.title] })); setShowLomba(null); setShowRegister(true); }} className="flex-1 h-10 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">📝 Daftar</button></div></div></div>)}
-      {showDetail && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowDetail(null)} /><div className="relative w-full max-w-[480px] bg-white rounded-[20px] p-5"><div className="flex justify-between"><h3 className="font-black text-[14px]">{(ANGGARAN_DETAIL as any)[showDetail]?.title}</h3><button onClick={()=>setShowDetail(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div><div className="mt-4 space-y-2">{(ANGGARAN_DETAIL as any)[showDetail]?.items.map((it:any,i:number)=>(<div key={i} className="flex justify-between text-[12px] p-2.5 rounded-xl bg-zinc-50 border"><span>{it.nama} ({it.qty})</span><span className="font-mono font-bold">{formatRupiah(it.harga)}</span></div>))}</div></div></div>)}
-      {showPanitiaLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur" onClick={()=>setShowPanitiaLogin(false)} />
-          <div className="relative w-full max-w-[380px] bg-white rounded-[20px] p-6 shadow-2xl">
-            <h3 className="font-black">🔒 Login Panel Panitia</h3>
-            <p className="text-[11px] text-zinc-500 mt-1">Pisah Password — Panitia & Owner kontrol penuh</p>
-            <div className="mt-3 bg-zinc-50 border rounded-xl p-3 text-[10px] leading-4">
-              <div className="font-bold">Panitia:</div>
-              <div>admin / mawar81 (Administrator)</div>
-              <div>eka / pj2026! , bayu / ketua2026! , aulia / bendahara2026!</div>
-              <div>sugiono / wakil2026! , lani / sekretaris2026! , puput / bendahara2!</div>
-              <div className="mt-2 font-bold">Owner:</div>
-              <div>owner / owner81 , superadmin / super2026!</div>
-            </div>
-            <form onSubmit={(e)=>{ e.preventDefault(); loginPanitia(); }}>
-              <input value={loginUsername} onChange={e=>setLoginUsername(e.target.value)} placeholder="Username (admin/eka/bayu/aulia...)" className="mt-4 w-full h-11 px-4 rounded-xl border text-[13px]" />
-              <input type="password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} placeholder="Password" className="mt-3 w-full h-11 px-4 rounded-xl border text-[13px]" autoFocus />
-              <button type="submit" className="mt-3 w-full h-11 rounded-xl bg-[#C1272D] text-white font-black text-[13px]">Masuk</button>
-            </form>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button onClick={()=>{ setLoginUsername('admin'); setLoginPassword('mawar81'); }} className="h-8 rounded-full bg-zinc-100 border text-[11px] font-bold">admin/mawar81</button>
-              <button onClick={()=>{ setLoginUsername('owner'); setLoginPassword('owner81'); }} className="h-8 rounded-full bg-zinc-900 text-white text-[11px] font-bold">owner/owner81</button>
+      <section id="galeri" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex justify-between items-end"><div><h2 className="text-[22px] font-black">📸 Gallery & Video</h2><p className="text-[12px] text-zinc-500">Klik gambar untuk zoom & download HD</p></div><div className="flex gap-2"><button onClick={()=>setShowGalleryPage(true)} className="text-[11px] px-3 py-1.5 bg-[#C1272D] text-white rounded-full font-bold shadow">📸 Buka Halaman Galeri Lengkap</button><span className="hidden md:flex text-[10px] px-3 py-1.5 bg-[#C1272D]/10 text-[#C1272D] rounded-full font-bold border">{gallery.length} item</span></div></div>
+        <div className="mt-6 grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
+          <div>
+            <div className="aspect-video bg-zinc-900 rounded-[20px] overflow-hidden shadow-xl relative group border border-zinc-800">
+              {selectedVideo && (selectedVideo.src.includes('.mp4') ? <video src={selectedVideo.src} controls className="w-full h-full object-cover" /> : <iframe src={selectedVideo.src} className="w-full h-full" allowFullScreen />)}
+              <div className="absolute bottom-3 left-3 bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur">{selectedVideo?.title}</div>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">{gallery.filter(g=>g.type==='image').slice(0,4).map(g=>(<button key={g.id} onClick={()=>setGalleryZoom(g)} className="group relative rounded-[16px] overflow-hidden border shadow-sm aspect-[4/3] bg-zinc-100 text-left"><img src={g.src} alt={g.title} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" /><div className="absolute bottom-2 left-2 text-white text-[11px] font-bold drop-shadow">{g.title}</div></button>))}</div>
         </div>
-      )}
-
-      {galleryZoom && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-6">
-          <div className="absolute inset-0 bg-zinc-900/90 backdrop-blur-md" onClick={()=>setGalleryZoom(null)} />
-          <div className="relative w-full max-w-[92vw] lg:max-w-[920px] max-h-[92vh] bg-white rounded-[20px] overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b bg-zinc-50"><div className="font-black text-[13px]">{(galleryZoom as any).title}</div><button onClick={()=>setGalleryZoom(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
-            <div className="flex-1 bg-zinc-950 flex items-center justify-center min-h-[320px]">
-              {galleryZoom.type==='image' ? <img src={galleryZoom.src} alt={galleryZoom.title} className="max-w-full max-h-[78vh] object-contain" /> : <div className="w-full aspect-video bg-black">{galleryZoom.src.includes('.mp4') ? <video src={galleryZoom.src} controls autoPlay className="w-full h-full object-contain" /> : <iframe src={galleryZoom.src} className="w-full h-full" allowFullScreen />}</div>}
-            </div>
-          </div>
-        </div>
-      )}
+      </section>
 
       <section id="admin" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="bg-zinc-900 rounded-[24px] text-white overflow-hidden shadow-2xl border border-zinc-800">
@@ -618,7 +534,8 @@ export default function App() {
                   {id:'keuangan',label:'💰 Keuangan'},
                   {id:'donasi',label:'❤️ Donasi'},
                   {id:'gallery',label:'🖼️ Gallery'},
-                  {id:'supabase',label:'🗄️ Supabase'},
+                  {id:'inventory',label:'📦 Inventory'},
+                  {id:'supabase',label: isOwner ? '🗄️ Supabase (Owner)' : '🗄️ Supabase'},
                 ].map(t=>(
                   <button key={t.id} onClick={()=>setAdminTab(t.id as any)} className={`whitespace-nowrap px-4 py-2 rounded-full text-[12px] font-bold transition ${adminTab===t.id?'bg-white text-zinc-900':'bg-white/10 text-white/70 hover:bg-white/15'}`}>{t.label}</button>
                 ))}
@@ -645,8 +562,8 @@ export default function App() {
                 {adminTab==='keuangan' && (
                   <div className="space-y-4">
                     <div className="grid lg:grid-cols-2 gap-4">
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Keuangan</h4><div className="mt-3 space-y-2"><input value={newFunding.sumber} onChange={e=>setNewFunding({...newFunding, sumber:e.target.value})} placeholder="Sumber" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-3 gap-2"><input type="number" value={newFunding.jumlah} onChange={e=>setNewFunding({...newFunding, jumlah:e.target.value})} placeholder="Jumlah" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newFunding.kategori} onChange={e=>setNewFunding({...newFunding, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="iuran">Iuran</option><option value="donasi">Donasi</option><option value="sponsor">Sponsor</option><option value="donatur">Donatur</option><option value="kas">Kas</option></select><select value={newFunding.metode} onChange={e=>setNewFunding({...newFunding, metode:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveFunding} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah</button></div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Donasi</h4><div className="mt-3 space-y-2"><input value={cashDonasi.nama} onChange={e=>setCashDonasi({...cashDonasi, nama:e.target.value})} placeholder="Nama" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-2 gap-2"><input type="number" value={cashDonasi.jumlah} onChange={e=>setCashDonasi({...cashDonasi, jumlah:e.target.value})} placeholder="Jumlah" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={cashDonasi.metode} onChange={e=>setCashDonasi({...cashDonasi, metode:e.target.value as any})} className="h-10 px-3 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveCashDonasi} className="w-full h-10 rounded-xl bg-emerald-600 text-white font-black text-[12px]">Tambah</button></div></div>
+                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Keuangan</h4><div className="mt-3 space-y-2"><input value={newFunding.sumber} onChange={e=>setNewFunding({...newFunding, sumber:e.target.value})} placeholder="Sumber dana" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-3 gap-2"><input type="number" value={newFunding.jumlah} onChange={e=>setNewFunding({...newFunding, jumlah:e.target.value})} placeholder="Jumlah Rp" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newFunding.kategori} onChange={e=>setNewFunding({...newFunding, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="iuran">Iuran</option><option value="donasi">Donasi</option><option value="sponsor">Sponsor</option><option value="donatur">Donatur</option><option value="kas">Kas</option></select><select value={newFunding.metode} onChange={e=>setNewFunding({...newFunding, metode:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveFunding} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah</button></div></div>
+                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Donasi</h4><div className="mt-3 space-y-2"><input value={cashDonasi.nama} onChange={e=>setCashDonasi({...cashDonasi, nama:e.target.value})} placeholder="Nama donatur" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-2 gap-2"><input type="number" value={cashDonasi.jumlah} onChange={e=>setCashDonasi({...cashDonasi, jumlah:e.target.value})} placeholder="Jumlah Rp" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={cashDonasi.metode} onChange={e=>setCashDonasi({...cashDonasi, metode:e.target.value as any})} className="h-10 px-3 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveCashDonasi} className="w-full h-10 rounded-xl bg-emerald-600 text-white font-black text-[12px]">Tambah</button></div></div>
                     </div>
                     <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Daftar Keuangan — {funding.length} data — Total {formatRupiah(totalDana)}</h4><div className="mt-3 space-y-2 max-h-[300px] overflow-y-auto">{funding.map(f=>(<div key={f.id} className="flex justify-between items-center p-3 rounded-xl border bg-zinc-50"><div><div className="font-bold text-[12px]">{f.sumber}</div><div className="text-[11px] text-zinc-500">{formatRupiah(f.jumlah)} • {f.kategori} • {f.metode}</div></div><button onClick={()=>setFunding(funding.filter(x=>x.id!==f.id))} className="h-7 px-3 rounded-full bg-red-500 text-white text-[11px]">Hapus</button></div>))}</div></div>
                   </div>
@@ -654,17 +571,83 @@ export default function App() {
                 {adminTab==='donasi' && (
                   <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Donasi Masuk ({donors.length})</h4><div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">{donors.map(d=>(<div key={d.id} className="flex justify-between p-3 rounded-xl border bg-zinc-50"><div><div className="font-bold text-[12px]">{d.name}</div><div className="text-[11px] text-zinc-500">{d.alamat} • {d.waktu}</div></div><div className="font-mono font-black text-emerald-700">{formatRupiah(d.jumlah)}</div></div>))}</div></div>
                 )}
+                {adminTab==='inventory' && (
+                  <div className="space-y-4">
+                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">📦 Tambah Inventory Peralatan & Aksesoris Panitia</h4><p className="text-[11px] text-zinc-500 mt-1">Kelola peralatan, aksesoris, dekorasi, sound — bisa diinput/edit via Admin Panitia, tampil di halaman Inventory (header menu)</p><div className="mt-3 grid md:grid-cols-6 gap-2"><input value={newInventory.nama} onChange={e=>setNewInventory({...newInventory, nama:e.target.value})} placeholder="Nama peralatan" className="h-10 px-3 rounded-xl border text-[12px] col-span-2" /><select value={newInventory.kategori} onChange={e=>setNewInventory({...newInventory, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="peralatan">Peralatan</option><option value="aksesoris">Aksesoris</option><option value="dekorasi">Dekorasi</option><option value="sound">Sound</option><option value="lainnya">Lainnya</option></select><input type="number" value={newInventory.jumlah} onChange={e=>setNewInventory({...newInventory, jumlah:e.target.value})} placeholder="Jumlah" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newInventory.kondisi} onChange={e=>setNewInventory({...newInventory, kondisi:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="baik">Baik</option><option value="rusak">Rusak</option><option value="hilang">Hilang</option></select><input value={newInventory.lokasi} onChange={e=>setNewInventory({...newInventory, lokasi:e.target.value})} placeholder="Lokasi" className="h-10 px-3 rounded-xl border text-[12px]" /></div><div className="mt-2 grid md:grid-cols-[1fr_200px] gap-2"><input value={newInventory.penanggungJawab} onChange={e=>setNewInventory({...newInventory, penanggungJawab:e.target.value})} placeholder="Penanggung Jawab" className="h-10 px-3 rounded-xl border text-[12px]" /><button onClick={()=>{
+                      if(!newInventory.nama||!newInventory.jumlah) return alert('Lengkapi nama & jumlah');
+                      const ni:any = { id:`inv-${Date.now()}`, nama:newInventory.nama, kategori:newInventory.kategori, jumlah:Number(newInventory.jumlah), kondisi:newInventory.kondisi, lokasi:newInventory.lokasi||'Gudang RT', penanggungJawab:newInventory.penanggungJawab||currentUser?.nama||'Panitia' };
+                      setInventory(prev=>[ni, ...prev]);
+                      setNewInventory({ nama:'', kategori:'peralatan', jumlah:'', kondisi:'baik', lokasi:'', penanggungJawab:'' });
+                      (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('inventory').insert([{ nama:ni.nama, kategori:ni.kategori, jumlah:ni.jumlah, kondisi:ni.kondisi, lokasi:ni.lokasi, penanggung_jawab:ni.penanggungJawab }]); }catch{} })();
+                    }} className="h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">+ Tambah Inventory</button></div></div>
+                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Daftar Inventory — {inventory.length} item — bisa edit via Admin Panitia</h4><div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">{inventory.map(it=>(
+                      <div key={it.id} className="border rounded-xl p-3 bg-zinc-50"><div className="flex justify-between items-start"><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kategori==='peralatan'?'bg-blue-50 text-blue-600':it.kategori==='aksesoris'?'bg-pink-50 text-pink-600':'bg-zinc-100'}`}>{it.kategori}</span><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kondisi==='baik'?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}`}>{it.kondisi}</span></div><div className="font-bold text-[13px] mt-2">{it.nama}</div><div className="text-[11px] text-zinc-500 mt-1">Jumlah: {it.jumlah} • Lokasi: {it.lokasi} • PJ: {it.penanggungJawab}</div><div className="mt-2 flex gap-2"><button onClick={()=>{
+                        const nama = prompt('Edit nama', it.nama); if(!nama) return; setInventory(prev=>prev.map(x=>x.id===it.id?{...x, nama}:x));
+                      }} className="flex-1 h-7 rounded-full bg-white border text-[11px] font-bold">Edit</button><button onClick={()=>setInventory(prev=>prev.filter(x=>x.id!==it.id))} className="flex-1 h-7 rounded-full bg-red-500 text-white text-[11px] font-bold">Hapus</button></div></div>
+                    ))}</div></div>
+                  </div>
+                )}
                 {adminTab==='gallery' && (
                   <div className="grid lg:grid-cols-2 gap-4">
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Gallery</h4><div className="mt-3 space-y-2"><input id="gal-title" placeholder="Judul" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><input id="gal-src" placeholder="URL Gambar" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><select id="gal-type" className="w-full h-10 px-3 rounded-xl border text-[12px]"><option value="image">Image</option><option value="video">Video</option></select><button onClick={()=>{ const t=(document.getElementById('gal-title') as HTMLInputElement).value; const s=(document.getElementById('gal-src') as HTMLInputElement).value; const ty=(document.getElementById('gal-type') as HTMLSelectElement).value as any; if(!t||!s){ alert('Lengkapi'); return; } setGallery([{ id:`g-${Date.now()}`, title:t, src:s, type:ty }, ...gallery]); }} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah</button></div></div>
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Kelola Gallery</h4><div className="mt-3 grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">{gallery.map(g=>(<div key={g.id} className="border rounded-xl overflow-hidden"><img src={g.src} alt={g.title} className="w-full h-20 object-cover" /><div className="p-2"><div className="text-[11px] font-bold truncate">{g.title}</div><button onClick={()=>setGallery(gallery.filter(x=>x.id!==g.id))} className="mt-1 w-full h-6 rounded-full bg-red-500 text-white text-[10px]">Hapus</button></div></div>))}</div></div>
+                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Gallery — Warga bisa upload foto</h4><div className="mt-3 space-y-2">
+                      <input id="gal-title" placeholder="Judul foto/video" className="w-full h-10 px-3 rounded-xl border text-[12px]" />
+                      <input type="file" accept="image/*,video/*" id="gal-file" className="w-full text-[11px] border rounded-xl p-2" onChange={(e)=>{
+                        const file = (e.target as HTMLInputElement).files?.[0]; if(!file) return;
+                        const reader = new FileReader(); reader.onload = (ev)=>{
+                          const dataUrl = ev.target?.result as string;
+                          const isVideo = file.type.startsWith('video');
+                          const titleInput = document.getElementById('gal-title') as HTMLInputElement;
+                          const title = titleInput.value || file.name;
+                          setGallery([{ id:`g-${Date.now()}`, title, src:dataUrl, type: isVideo ? 'video' : 'image', credit: 'Upload Warga — Dokumentasi Acara' } as any, ...gallery]);
+                          alert('Foto/video warga berhasil ditambah! Realtime di galeri.');
+                        }; reader.readAsDataURL(file);
+                      }} />
+                      <div className="text-[10px] text-zinc-500">Atau pakai URL:</div>
+                      <input id="gal-src" placeholder="URL Gambar atau YouTube" className="w-full h-10 px-3 rounded-xl border text-[12px]" />
+                      <select id="gal-type" className="w-full h-10 px-3 rounded-xl border text-[12px]"><option value="image">Image</option><option value="video">Video</option></select>
+                      <button onClick={()=>{ const t=(document.getElementById('gal-title') as HTMLInputElement).value; const s=(document.getElementById('gal-src') as HTMLInputElement).value; const ty=(document.getElementById('gal-type') as HTMLSelectElement).value as any; if(!t||!s){ alert('Lengkapi'); return; } setGallery([{ id:`g-${Date.now()}`, title:t, src:s, type:ty, credit:'Admin' } as any, ...gallery]); }} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah via URL</button>
+                      <div className="mt-3">
+                        <h5 className="font-bold text-[11px]">💬 Komentar Realtime per Foto/Video</h5>
+                        <div className="mt-2 space-y-2 max-h-[200px] overflow-y-auto">
+                          {comments.slice(0,10).map((c:any)=>(
+                            <div key={c.id} className="bg-zinc-50 border rounded-xl p-2"><div className="font-bold text-[11px]">{c.nama} <span className="text-[9px] text-zinc-500">di {c.galleryId}</span></div><div className="text-[11px]">{c.pesan}</div><div className="text-[9px] text-zinc-400">{c.waktu}</div></div>
+                          ))}
+                          {comments.length===0 && <div className="text-[11px] text-zinc-400 text-center py-4">Belum ada komentar — warga bisa komen di galeri</div>}
+                        </div>
+                        <div className="mt-2 grid grid-cols-[100px_1fr_60px] gap-2">
+                          <input id="c-nama" placeholder="Nama" className="h-8 px-2 rounded-lg border text-[11px]" />
+                          <input id="c-pesan" placeholder="Komentar..." className="h-8 px-2 rounded-lg border text-[11px]" />
+                          <button onClick={()=>{
+                            const nama = (document.getElementById('c-nama') as HTMLInputElement).value || 'Warga';
+                            const pesan = (document.getElementById('c-pesan') as HTMLInputElement).value;
+                            if(!pesan) return alert('Isi komentar');
+                            const cid = `c-${Date.now()}`;
+                            const newC = { id:cid, galleryId:'umum', nama, pesan, waktu:new Date().toLocaleString('id-ID') };
+                            setComments(prev=>[newC, ...prev]);
+                            try{ const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-komentar', data:newC }); bc.close(); }catch{}
+                            (document.getElementById('c-pesan') as HTMLInputElement).value='';
+                          }} className="h-8 rounded-lg bg-[#C1272D] text-white text-[11px] font-bold">Kirim</button>
+                        </div>
+                      </div>
+                    </div></div>
+                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Kelola Gallery ({gallery.length})</h4><div className="mt-3 grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">{gallery.map(g=>(<div key={g.id} className="border rounded-xl overflow-hidden"><img src={g.type==='image'?g.src:`https://img.youtube.com/vi/${g.src.split('/').pop()}/0.jpg`} alt={g.title} className="w-full h-20 object-cover" /><div className="p-2"><div className="text-[11px] font-bold truncate">{g.title}</div><div className="text-[10px] text-zinc-500">{(g as any).credit}</div><button onClick={()=>setGallery(gallery.filter(x=>x.id!==g.id))} className="mt-1 w-full h-6 rounded-full bg-red-500 text-white text-[10px]">Hapus</button></div></div>))}</div></div>
                   </div>
                 )}
                 {adminTab==='supabase' && (
                   <div className="bg-white text-zinc-900 rounded-2xl p-5 border">
-                    <h4 className="font-black">Supabase Config (Owner Only — kontrol semua)</h4>
-                    <div className="mt-3"><label className="text-[11px] font-bold">URL</label><input value={supabaseUrlInput} onChange={e=>setSupabaseUrlInput(e.target.value)} className="mt-1 w-full h-11 px-4 rounded-xl border text-[12px] font-mono" /></div>
-                    <div className="mt-3 flex gap-2"><button onClick={()=>{ setSupabaseConfig(supabaseUrlInput); location.reload(); }} className="h-10 px-5 rounded-full bg-[#C1272D] text-white font-black text-[12px]">Simpan & Reload</button><button onClick={testSupabase} className="h-10 px-5 rounded-full bg-zinc-900 text-white font-black text-[12px]">Test Koneksi</button>{supabaseStatus==='ok'&&<span className="h-10 px-4 rounded-full bg-emerald-500 text-white grid place-items-center text-[11px] font-bold">✅ OK</span>}</div>
+                    <h4 className="font-black">Supabase Config {isOwner ? '(Owner — kontrol semua)' : '(Panitia — tanpa fitur Supabase sensitif)'}</h4>
+                    {!isOwner ? (
+                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-[12px]"><div className="font-bold">Kolom Panitia tanpa fitur Supabase</div><div className="mt-1">Fitur Supabase (URL, Secret Key, SQL Editor, RLS) hanya untuk Owner. Panitia tetap bisa kelola Peserta, Keuangan, Donasi, Gallery secara lokal & realtime antar tab.</div></div>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        <div><label className="text-[11px] font-bold">URL</label><input value={supabaseUrlInput} onChange={e=>setSupabaseUrlInput(e.target.value)} className="mt-1 w-full h-11 px-4 rounded-xl border text-[12px] font-mono" /></div>
+                        <div className="flex gap-2"><button onClick={()=>{ setSupabaseConfig(supabaseUrlInput); location.reload(); }} className="h-10 px-5 rounded-full bg-[#C1272D] text-white font-black text-[12px]">Simpan & Reload</button><button onClick={testSupabase} className="h-10 px-5 rounded-full bg-zinc-900 text-white font-black text-[12px]">Test Koneksi</button>{supabaseStatus==='ok'&&<span className="h-10 px-4 rounded-full bg-emerald-500 text-white grid place-items-center text-[11px] font-bold">✅ OK</span>}</div>
+                        <div className="bg-zinc-50 border rounded-xl p-3 text-[11px] font-mono"><div className="font-black">SQL buat tabel:</div><pre className="mt-2 text-[10px] overflow-x-auto whitespace-pre-wrap">{`create table pendaftar (id uuid default gen_random_uuid() primary key, nama text, telepon text, rt text, lomba text, catatan text, created_at timestamp default now());
+create table donasi (id uuid default gen_random_uuid() primary key, nama text, alamat text, jumlah int, pesan text, is_anon bool default false, created_at timestamp default now());
+create table keuangan (id BIGSERIAL primary key, nama text, jenis text, jumlah bigint, keterangan text, is_anon bool default false, created_at timestamptz default now());
+alter table keuangan enable row level security; create policy "public_all" on keuangan for all using (true) with check (true);`}</pre></div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
