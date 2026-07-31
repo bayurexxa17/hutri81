@@ -224,18 +224,81 @@ export default function App() {
   useEffect(()=>{ const t = setInterval(()=>setSponsorSlideIdx(prev=>(prev+1)%Math.max(1,sponsors.length)), 4000); return ()=>clearInterval(t); },[sponsors.length]);
 
   const savePengeluaran = async () => {
-    if(!newPengeluaran.nama||!newPengeluaran.jumlah){ alert('Lengkapi nama & jumlah'); return; }
-    const ne:any = { id:`OUT-${Date.now()}`, nama:newPengeluaran.nama, kategori:newPengeluaran.kategori, jumlah:Number(newPengeluaran.jumlah), metode:newPengeluaran.metode, penerima:newPengeluaran.penerima||'-', catatan:newPengeluaran.catatan||'', waktu:new Date().toLocaleString('id-ID') };
-    setPengeluaran(prev=>[ne, ...prev]);
-    // juga masuk ke transaksi realtime sebagai pengeluaran
-    setTransaksi(prev=>[{ id:`TRX-${Date.now()}`, metode:ne.metode==='cash'?'qris-dana':'transfer-seabank', nama:ne.nama, jumlah:-ne.jumlah, waktu:ne.waktu, status:'pengeluaran', sumber:ne.penerima||ne.kategori }, ...prev]);
-    setNewPengeluaran({ nama:'', kategori:'hadiah', jumlah:'', metode:'cash', penerima:'', catatan:'' });
+    if(!newPengeluaran.nama || !newPengeluaran.jumlah){ alert('Lengkapi nama & jumlah'); return; }
+    
+    const jumlahNominal = Number(newPengeluaran.jumlah);
+    const currentTime = new Date().toLocaleString('id-ID');
+    const ne: any = { 
+      id: `OUT-${Date.now()}`, 
+      nama: newPengeluaran.nama, 
+      kategori: newPengeluaran.kategori, 
+      jumlah: jumlahNominal, 
+      metode: newPengeluaran.metode, 
+      penerima: newPengeluaran.penerima || '-', 
+      catatan: newPengeluaran.catatan || '',
+      waktu: currentTime
+    };
+
+    // 1. Update State Lokal
+    setPengeluaran(prev => [ne, ...prev]);
+    setTransaksi(prev => [{ 
+      id: `TRX-${Date.now()}`, 
+      metode: ne.metode === 'cash' ? 'qris-dana' : 'transfer-seabank', 
+      nama: ne.nama, 
+      jumlah: -jumlahNominal, 
+      waktu: ne.waktu, 
+      status: 'pengeluaran', 
+      sumber: ne.penerima || ne.kategori 
+    }, ...prev]);
+    
+    setNewPengeluaran({ nama: '', kategori: 'hadiah', jumlah: '', metode: 'cash', penerima: '', catatan: '' });
+
+    // 2. Kirim ke Supabase agar Real-Time ke browser lain
+    try {
+      const admin = getSupabaseAdmin();
+      await admin.from('pengeluaran').insert([{
+        nama: ne.nama,
+        kategori: ne.kategori,
+        jumlah: jumlahNominal,
+        metode: ne.metode,
+        penerima: ne.penerima,
+        catatan: ne.catatan
+      }]);
+      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
+    } catch (e: any) {
+      console.warn('Gagal sync pengeluaran ke Supabase:', e.message);
+    }
   };
+
   const saveSponsor = async () => {
     if(!newSponsor.nama){ alert('Lengkapi nama sponsor'); return; }
-    const ns:any = { id:`SP-${Date.now()}`, nama:newSponsor.nama, deskripsi:newSponsor.deskripsi, logo:newSponsor.logo||'🏪', website:newSponsor.website };
-    setSponsors(prev=>[ns, ...prev]);
-    setNewSponsor({ nama:'', deskripsi:'', logo:'🏪', website:'' });
+    
+    const ns: any = { 
+      id: `SP-${Date.now()}`, 
+      nama: newSponsor.nama, 
+      deskripsi: newSponsor.deskripsi, 
+      logo: newSponsor.logo || '🏪', 
+      website: newSponsor.website 
+    };
+
+    // 1. Update State Lokal
+    setSponsors(prev => [ns, ...prev]);
+    setNewSponsor({ nama: '', deskripsi: '', logo: '🏪', website: '' });
+
+    // 2. Kirim ke Supabase agar Real-Time ke browser lain
+    try {
+      const admin = getSupabaseAdmin();
+      await admin.from('sponsor').insert([{
+        nama: ns.nama,
+        deskripsi: ns.deskripsi,
+        logo: ns.logo,
+        website: ns.website,
+        jumlah: 0
+      }]);
+      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
+    } catch (e: any) {
+      console.warn('Gagal sync sponsor ke Supabase:', e.message);
+    }
   };
   useEffect(()=>{ try{ localStorage.setItem('isPanitia', String(isPanitia)); }catch{} },[isPanitia]);
   useEffect(()=>{ try{ localStorage.setItem('isOwner', String(isOwner)); }catch{} },[isOwner]);
