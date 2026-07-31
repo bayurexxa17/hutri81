@@ -345,18 +345,61 @@ export default function App() {
     };
 
     const loadAllFromSupabase = async () => {
-      try {
-        const pesertaRows = await fetchTable('pendaftar');
-        const mappedPeserta: Participant[] = pesertaRows.map((d:any, i:number)=>({
-          id: d.id?.toString().startsWith('MWR') ? d.id : `MWR81-${String(i+1).padStart(4,'0')}`,
-          name: d.nama || d.name || 'Tanpa Nama',
-          rt: d.rt || '',
-          hp: d.telepon || d.hp || '-',
-          lomba: typeof d.lomba==='string' ? d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean) : Array.isArray(d.lomba) ? d.lomba : [],
-          catatan: d.catatan || 'Live join',
-          waktu: d.created_at ? new Date(d.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'),
-          createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
+    try {
+      const admin = getSupabaseAdmin();
+
+      // Helper aman untuk fetch per tabel agar 404 tidak menghentikan tabel lain
+      const safeFetch = async (tableName: string) => {
+        try {
+          const res = await admin.from(tableName).select('*').limit(500);
+          if (res.error) throw res.error;
+          return res.data || [];
+        } catch (e) {
+          console.warn(`Tabel "${tableName}" dilewati/belum ada:`, e);
+          return [];
+        }
+      };
+
+      // Ambil data secara terpisah agar aman dari error 404
+      const sponsorRowsData = await safeFetch('sponsor');
+      const pengeluaranRowsData = await safeFetch('pengeluaran');
+      const keuanganRows = await safeFetch('keuangan');
+      const donasiRows = await safeFetch('donasi');
+      const iuranRows = await safeFetch('iuran warga');
+
+      // 1. Mapping Sponsor
+      if (sponsorRowsData && sponsorRowsData.length > 0) {
+        const mappedSponsors = sponsorRowsData.map((s: any) => ({
+          id: `sp-${s.id}`,
+          nama: s.nama || 'Sponsor',
+          deskripsi: s.deskripsi || '',
+          logo: s.logo || '🏪',
+          website: s.website || '',
+          jumlah: Number(s.jumlah) || 0
         }));
+        setSponsors(mappedSponsors);
+      }
+
+      // 2. Mapping Pengeluaran
+      if (pengeluaranRowsData && pengeluaranRowsData.length > 0) {
+        const mappedPengeluaran = pengeluaranRowsData.map((p: any) => ({
+          id: `OUT-${p.id}`,
+          nama: p.nama || 'Pengeluaran',
+          kategori: p.kategori || 'umum',
+          jumlah: Number(p.jumlah) || 0,
+          metode: p.metode || 'cash',
+          penerima: p.penerima || '-',
+          catatan: p.catatan || '',
+          waktu: p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : ''
+        }));
+        setPengeluaran(mappedPengeluaran);
+      }
+
+      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
+    } catch (e) {
+      console.warn('Gagal sinkronisasi data Supabase:', e);
+    }
+  };
         setParticipants(mappedPeserta);
 
         const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, inventoryRows, commentRows] = await Promise.all([
