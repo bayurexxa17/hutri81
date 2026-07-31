@@ -223,58 +223,59 @@ export default function App() {
     return ()=>{ try{ bc?.close(); }catch{} };
   },[]);
 
-  // Supabase sync utama: ambil data dari tabel asli project, bukan dummy/frontend
+  // Supabase sync utama: gunakan tabel Supabase sebagai sumber data utama
   useEffect(()=>{
-    (async()=>{
-      try{
-        const admin = getSupabaseAdmin();
-        // helper fetch aman
-        const fetchTable = async (table: string) => {
-          try {
-            const { data, error } = await admin.from(table).select('*').order('created_at',{ascending:false}).limit(500);
-            if (error) throw error;
-            return data || [];
-          } catch (e) {
-            console.warn('table skip', table, e);
-            return [];
-          }
-        };
+    let channels: any[] = [];
+    const admin = getSupabaseAdmin();
 
-        // 1) Peserta dari pendaftar
-        const pesertaRows = await fetchTable('pendaftar');
-        if (pesertaRows.length) {
-          const mappedPeserta: Participant[] = pesertaRows.map((d:any, i:number)=>({
-            id: d.id?.toString().startsWith('MWR') ? d.id : `MWR81-${String(i+1).padStart(4,'0')}`,
-            name: d.nama || d.name || 'Tanpa Nama',
-            rt: d.rt || '',
-            hp: d.telepon || d.hp || '-',
-            lomba: typeof d.lomba==='string' ? d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean) : Array.isArray(d.lomba) ? d.lomba : [],
-            catatan: d.catatan || 'Live join',
-            waktu: d.created_at ? new Date(d.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'),
-            createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
-          }));
-          setParticipants(mappedPeserta);
+    const fetchTable = async (table: string) => {
+      try {
+        let res = await admin.from(table).select('*').order('created_at', { ascending: false }).limit(500);
+        if (res.error) {
+          // beberapa tabel user tidak punya created_at -> coba tanpa order
+          res = await admin.from(table).select('*').limit(500);
         }
+        if (res.error) throw res.error;
+        return res.data || [];
+      } catch (e) {
+        console.warn('table skip', table, e);
+        return [];
+      }
+    };
 
-        // 2) Tabel-tabel keuangan asli Supabase user
-        const [donasiRows, donasiCashRows, donasiOnlineRows, iuranRows, sponsorRows, keuanganRows] = await Promise.all([
+    const loadAllFromSupabase = async () => {
+      try {
+        const pesertaRows = await fetchTable('pendaftar');
+        const mappedPeserta: Participant[] = pesertaRows.map((d:any, i:number)=>({
+          id: d.id?.toString().startsWith('MWR') ? d.id : `MWR81-${String(i+1).padStart(4,'0')}`,
+          name: d.nama || d.name || 'Tanpa Nama',
+          rt: d.rt || '',
+          hp: d.telepon || d.hp || '-',
+          lomba: typeof d.lomba==='string' ? d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean) : Array.isArray(d.lomba) ? d.lomba : [],
+          catatan: d.catatan || 'Live join',
+          waktu: d.created_at ? new Date(d.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'),
+          createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
+        }));
+        setParticipants(mappedPeserta);
+
+        const [donasiRows, donasiCashRows, donasiOnlineRows, iuranRows, sponsorRows, keuanganRows, inventoryRows, commentRows] = await Promise.all([
           fetchTable('donasi'),
           fetchTable('donasi cash'),
           fetchTable('donasi online'),
           fetchTable('iuran warga'),
           fetchTable('sponsor'),
           fetchTable('keuangan'),
+          fetchTable('inventory'),
+          fetchTable('komentar galeri'),
         ]);
 
-        // donors dari donasi table utama + donasi cash + donasi online
         const mappedDonors: Donor[] = [
-          ...donasiRows.map((d:any)=>({ id:`don-${d.id}`, name:d.nama||d.name||'Donatur', alamat:d.alamat||'-', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'donasi' })),
-          ...donasiCashRows.map((d:any)=>({ id:`dc-${d.id}`, name:d.nama||d.name||'Donatur Cash', alamat:d.alamat||'Cash', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Cash', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'cash' })),
-          ...donasiOnlineRows.map((d:any)=>({ id:`do-${d.id}`, name:d.nama||d.name||'Donatur Online', alamat:d.alamat||'Transfer/QRIS', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Online', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'online' })),
+          ...donasiRows.map((d:any)=>({ id:`don-${d.id}`, name:d.nama||'Donatur', alamat:d.alamat||'-', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'donasi', jenis:'donasi' })),
+          ...donasiCashRows.map((d:any)=>({ id:`dc-${d.id}`, name:d.nama||'Donatur Cash', alamat:d.alamat||'Cash', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Cash', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'cash', jenis:'donasi cash' })),
+          ...donasiOnlineRows.map((d:any)=>({ id:`do-${d.id}`, name:d.nama||'Donatur Online', alamat:d.alamat||'Transfer/QRIS', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Online', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'online', jenis:'donasi online' })),
         ];
         setDonors(mappedDonors);
 
-        // funding dari iuran warga + sponsor + keuangan umum
         const mappedFunding: Funding[] = [
           ...iuranRows.map((f:any)=>({ id:`iuran-${f.id}`, sumber:f.nama||f.sumber||'Iuran Warga', jumlah:Number(f.jumlah)||0, kategori:'iuran' as const, status:'confirmed' as const, metode:'cash' as const, jenis:'iuran warga' })),
           ...sponsorRows.map((f:any)=>({ id:`sponsor-${f.id}`, sumber:f.nama||f.sumber||'Sponsor', jumlah:Number(f.jumlah)||0, kategori:'sponsor' as const, status:'confirmed' as const, metode:'transfer' as const, jenis:'sponsor' })),
@@ -282,7 +283,7 @@ export default function App() {
             id:`keu-${f.id}`,
             sumber:f.nama||f.sumber||'Keuangan',
             jumlah:Number(f.jumlah)||0,
-            kategori:(f.jenis==='iuran warga'?'iuran':f.jenis==='sponsor'?'sponsor':f.jenis==='donasi'?'donasi':'kas') as any,
+            kategori:(String(f.jenis||'').toLowerCase().includes('iuran')?'iuran':String(f.jenis||'').toLowerCase().includes('sponsor')?'sponsor':String(f.jenis||'').toLowerCase().includes('donatur')?'donatur':String(f.jenis||'').toLowerCase().includes('online')?'donasi_online':String(f.jenis||'').toLowerCase().includes('cash')?'donasi_cash':String(f.jenis||'').toLowerCase().includes('donasi')?'donasi':'kas') as any,
             status:'confirmed' as const,
             metode:(String(f.keterangan||'').toLowerCase().includes('qris')?'qris':String(f.keterangan||'').toLowerCase().includes('transfer')?'transfer':'cash') as any,
             jenis:f.jenis||'keuangan',
@@ -290,27 +291,46 @@ export default function App() {
         ];
         setFunding(mappedFunding);
 
-        // transaksi realtime dirakit dari semua table keuangan
         const mappedTransaksi = [
-          ...mappedDonors.map((d:any)=>({ id:`trx-${d.id}`, metode:d.metode==='cash'?'qris-dana':d.metode==='online'?'transfer-seabank':'qris-dana', nama:d.name, jumlah:d.jumlah, waktu:d.waktu, status:'success', sumber:d.alamat })),
-          ...mappedFunding.map((f:any)=>({ id:`trx-${f.id}`, metode:f.metode==='qris'?'qris-dana':f.metode==='transfer'?'transfer-seabank':'transfer-dana', nama:f.sumber, jumlah:f.jumlah, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:f.sumber })),
+          ...mappedFunding.map((f:any)=>({ id:`trx-f-${f.id}`, metode:f.metode==='qris'?'qris-dana':f.metode==='transfer'?'transfer-seabank':'transfer-dana', nama:f.sumber, jumlah:f.jumlah, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:f.jenis||f.sumber })),
+          ...mappedDonors.map((d:any)=>({ id:`trx-d-${d.id}`, metode:d.metode==='cash'?'qris-dana':d.metode==='online'?'transfer-seabank':'qris-dana', nama:d.name, jumlah:d.jumlah, waktu:d.waktu, status:'success', sumber:d.jenis||d.alamat })),
+          ...pengeluaran.map((p:any)=>({ id:`trx-o-${p.id}`, metode:p.metode==='qris'?'qris-dana':p.metode==='transfer'?'transfer-seabank':'transfer-dana', nama:p.nama, jumlah:-Math.abs(Number(p.jumlah)||0), waktu:p.waktu, status:'pengeluaran', sumber:p.kategori||p.penerima })),
         ];
         setTransaksi(mappedTransaksi);
 
-        // inventory & komentar jika tabel ada
-        const invRows = await fetchTable('inventory');
-        if (invRows.length) {
-          setInventory(invRows.map((i:any)=>({ id:i.id, nama:i.nama, kategori:i.kategori||'peralatan', jumlah:Number(i.jumlah)||0, kondisi:i.kondisi||'baik', lokasi:i.lokasi||'-', penanggungJawab:i.penanggung_jawab||i.penanggungJawab||'-' })));
+        if (inventoryRows.length) {
+          setInventory(inventoryRows.map((i:any)=>({ id:i.id, nama:i.nama, kategori:i.kategori||'peralatan', jumlah:Number(i.jumlah)||0, kondisi:i.kondisi||'baik', lokasi:i.lokasi||'-', penanggungJawab:i.penanggung_jawab||i.penanggungJawab||'-' })));
         }
-        const commentRows = await fetchTable('komentar galeri');
         if (commentRows.length) {
           setComments(commentRows.map((c:any)=>({ id:c.id, galleryId:c.gallery_id||'umum', nama:c.nama||'Warga', pesan:c.pesan||'', waktu:c.created_at?new Date(c.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID') })));
         }
-      }catch(e){
+      } catch (e) {
         console.warn('Supabase sync gagal, cek URL/API/table', e);
       }
-    })();
-  },[]);
+    };
+
+    loadAllFromSupabase();
+
+    const subscribe = (table:string) => {
+      try {
+        const ch = supabase.channel(`rt-${table}-${Math.random()}`)
+          .on('postgres_changes',{event:'*', schema:'public', table},()=>{
+            loadAllFromSupabase();
+            setLastUpdate(new Date().toLocaleTimeString('id-ID'));
+          })
+          .subscribe();
+        channels.push(ch);
+      } catch (e) {
+        console.warn('channel fail', table, e);
+      }
+    };
+
+    ['pendaftar','donasi','donasi cash','donasi online','iuran warga','sponsor','keuangan','inventory','komentar galeri'].forEach(subscribe);
+
+    return ()=>{
+      channels.forEach(ch=>{ try{ supabase.removeChannel(ch); }catch{} });
+    };
+  },[pengeluaran]);
 
   useEffect(()=>{ if(!live) return; const iv=setInterval(()=>setLastUpdate(new Date().toLocaleTimeString('id-ID')),4000); return()=>clearInterval(iv); },[live]);
 
