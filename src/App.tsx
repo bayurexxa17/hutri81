@@ -1081,14 +1081,14 @@ alter table keuangan enable row level security; create policy "public_all" on ke
           <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur" onClick={()=>setShowPanitiaLogin(false)} />
           <div className="relative w-full max-w-[380px] bg-white rounded-[20px] p-6 shadow-2xl">
             <h3 className="font-black">🔒 Login Panel Panitia</h3>
-            <p className="text-[11px] text-zinc-500 mt-1">Pisah Password — Panitia & Owner kontrol penuh</p>
+            <p className="text-[11px] text-zinc-500 mt-1"></p>
             <div className="mt-3 bg-zinc-50 border rounded-xl p-3 text-[10px] leading-4">
-              <div className="font-bold">Panitia:</div>
-              <div>admin / mawar81 (Administrator)</div>
-              <div>eka / pj2026! , bayu / ketua2026! , aulia / bendahara2026!</div>
-              <div>sugiono / wakil2026! , lani / sekretaris2026! , puput / bendahara2!</div>
-              <div className="mt-2 font-bold">Owner:</div>
-              <div>owner / owner81 , superadmin / super2026!</div>
+              <div className="font-bold"></div>
+              <div></div>
+              <div></div>
+              <div></div>
+              <div className="mt-2 font-bold"></div>
+              <div></div>
             </div>
             <form onSubmit={(e)=>{ e.preventDefault(); loginPanitia(); }}>
               <input value={loginUsername} onChange={e=>setLoginUsername(e.target.value)} placeholder="Username (admin/eka/bayu/aulia...)" className="mt-4 w-full h-11 px-4 rounded-xl border text-[13px]" />
