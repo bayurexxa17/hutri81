@@ -224,81 +224,18 @@ export default function App() {
   useEffect(()=>{ const t = setInterval(()=>setSponsorSlideIdx(prev=>(prev+1)%Math.max(1,sponsors.length)), 4000); return ()=>clearInterval(t); },[sponsors.length]);
 
   const savePengeluaran = async () => {
-    if(!newPengeluaran.nama || !newPengeluaran.jumlah){ alert('Lengkapi nama & jumlah'); return; }
-    
-    const jumlahNominal = Number(newPengeluaran.jumlah);
-    const currentTime = new Date().toLocaleString('id-ID');
-    const ne: any = { 
-      id: `OUT-${Date.now()}`, 
-      nama: newPengeluaran.nama, 
-      kategori: newPengeluaran.kategori, 
-      jumlah: jumlahNominal, 
-      metode: newPengeluaran.metode, 
-      penerima: newPengeluaran.penerima || '-', 
-      catatan: newPengeluaran.catatan || '',
-      waktu: currentTime
-    };
-
-    // 1. Update State Lokal
-    setPengeluaran(prev => [ne, ...prev]);
-    setTransaksi(prev => [{ 
-      id: `TRX-${Date.now()}`, 
-      metode: ne.metode === 'cash' ? 'qris-dana' : 'transfer-seabank', 
-      nama: ne.nama, 
-      jumlah: -jumlahNominal, 
-      waktu: ne.waktu, 
-      status: 'pengeluaran', 
-      sumber: ne.penerima || ne.kategori 
-    }, ...prev]);
-    
-    setNewPengeluaran({ nama: '', kategori: 'hadiah', jumlah: '', metode: 'cash', penerima: '', catatan: '' });
-
-    // 2. Kirim ke Supabase agar Real-Time ke browser lain
-    try {
-      const admin = getSupabaseAdmin();
-      await admin.from('pengeluaran').insert([{
-        nama: ne.nama,
-        kategori: ne.kategori,
-        jumlah: jumlahNominal,
-        metode: ne.metode,
-        penerima: ne.penerima,
-        catatan: ne.catatan
-      }]);
-      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
-    } catch (e: any) {
-      console.warn('Gagal sync pengeluaran ke Supabase:', e.message);
-    }
+    if(!newPengeluaran.nama||!newPengeluaran.jumlah){ alert('Lengkapi nama & jumlah'); return; }
+    const ne:any = { id:`OUT-${Date.now()}`, nama:newPengeluaran.nama, kategori:newPengeluaran.kategori, jumlah:Number(newPengeluaran.jumlah), metode:newPengeluaran.metode, penerima:newPengeluaran.penerima||'-', catatan:newPengeluaran.catatan||'', waktu:new Date().toLocaleString('id-ID') };
+    setPengeluaran(prev=>[ne, ...prev]);
+    // juga masuk ke transaksi realtime sebagai pengeluaran
+    setTransaksi(prev=>[{ id:`TRX-${Date.now()}`, metode:ne.metode==='cash'?'qris-dana':'transfer-seabank', nama:ne.nama, jumlah:-ne.jumlah, waktu:ne.waktu, status:'pengeluaran', sumber:ne.penerima||ne.kategori }, ...prev]);
+    setNewPengeluaran({ nama:'', kategori:'hadiah', jumlah:'', metode:'cash', penerima:'', catatan:'' });
   };
-
   const saveSponsor = async () => {
     if(!newSponsor.nama){ alert('Lengkapi nama sponsor'); return; }
-    
-    const ns: any = { 
-      id: `SP-${Date.now()}`, 
-      nama: newSponsor.nama, 
-      deskripsi: newSponsor.deskripsi, 
-      logo: newSponsor.logo || '🏪', 
-      website: newSponsor.website 
-    };
-
-    // 1. Update State Lokal
-    setSponsors(prev => [ns, ...prev]);
-    setNewSponsor({ nama: '', deskripsi: '', logo: '🏪', website: '' });
-
-    // 2. Kirim ke Supabase agar Real-Time ke browser lain
-    try {
-      const admin = getSupabaseAdmin();
-      await admin.from('sponsor').insert([{
-        nama: ns.nama,
-        deskripsi: ns.deskripsi,
-        logo: ns.logo,
-        website: ns.website,
-        jumlah: 0
-      }]);
-      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
-    } catch (e: any) {
-      console.warn('Gagal sync sponsor ke Supabase:', e.message);
-    }
+    const ns:any = { id:`SP-${Date.now()}`, nama:newSponsor.nama, deskripsi:newSponsor.deskripsi, logo:newSponsor.logo||'🏪', website:newSponsor.website };
+    setSponsors(prev=>[ns, ...prev]);
+    setNewSponsor({ nama:'', deskripsi:'', logo:'🏪', website:'' });
   };
   useEffect(()=>{ try{ localStorage.setItem('isPanitia', String(isPanitia)); }catch{} },[isPanitia]);
   useEffect(()=>{ try{ localStorage.setItem('isOwner', String(isOwner)); }catch{} },[isOwner]);
@@ -345,61 +282,18 @@ export default function App() {
     };
 
     const loadAllFromSupabase = async () => {
-    try {
-      const admin = getSupabaseAdmin();
-
-      // Helper aman untuk fetch per tabel agar 404 tidak menghentikan tabel lain
-      const safeFetch = async (tableName: string) => {
-        try {
-          const res = await admin.from(tableName).select('*').limit(500);
-          if (res.error) throw res.error;
-          return res.data || [];
-        } catch (e) {
-          console.warn(`Tabel "${tableName}" dilewati/belum ada:`, e);
-          return [];
-        }
-      };
-
-      // Ambil data secara terpisah agar aman dari error 404
-      const sponsorRowsData = await safeFetch('sponsor');
-      const pengeluaranRowsData = await safeFetch('pengeluaran');
-      const keuanganRows = await safeFetch('keuangan');
-      const donasiRows = await safeFetch('donasi');
-      const iuranRows = await safeFetch('iuran warga');
-
-      // 1. Mapping Sponsor
-      if (sponsorRowsData && sponsorRowsData.length > 0) {
-        const mappedSponsors = sponsorRowsData.map((s: any) => ({
-          id: `sp-${s.id}`,
-          nama: s.nama || 'Sponsor',
-          deskripsi: s.deskripsi || '',
-          logo: s.logo || '🏪',
-          website: s.website || '',
-          jumlah: Number(s.jumlah) || 0
+      try {
+        const pesertaRows = await fetchTable('pendaftar');
+        const mappedPeserta: Participant[] = pesertaRows.map((d:any, i:number)=>({
+          id: d.id?.toString().startsWith('MWR') ? d.id : `MWR81-${String(i+1).padStart(4,'0')}`,
+          name: d.nama || d.name || 'Tanpa Nama',
+          rt: d.rt || '',
+          hp: d.telepon || d.hp || '-',
+          lomba: typeof d.lomba==='string' ? d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean) : Array.isArray(d.lomba) ? d.lomba : [],
+          catatan: d.catatan || 'Live join',
+          waktu: d.created_at ? new Date(d.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'),
+          createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
         }));
-        setSponsors(mappedSponsors);
-      }
-
-      // 2. Mapping Pengeluaran
-      if (pengeluaranRowsData && pengeluaranRowsData.length > 0) {
-        const mappedPengeluaran = pengeluaranRowsData.map((p: any) => ({
-          id: `OUT-${p.id}`,
-          nama: p.nama || 'Pengeluaran',
-          kategori: p.kategori || 'umum',
-          jumlah: Number(p.jumlah) || 0,
-          metode: p.metode || 'cash',
-          penerima: p.penerima || '-',
-          catatan: p.catatan || '',
-          waktu: p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : ''
-        }));
-        setPengeluaran(mappedPengeluaran);
-      }
-
-      setLastUpdate(new Date().toLocaleTimeString('id-ID'));
-    } catch (e) {
-      console.warn('Gagal sinkronisasi data Supabase:', e);
-    }
-  };
         setParticipants(mappedPeserta);
 
         const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, inventoryRows, commentRows] = await Promise.all([
@@ -525,17 +419,16 @@ export default function App() {
   },[iuranRows, keuanganRowsRaw]);
 
   const donaturEntries = useMemo(()=>{
-    if (donasiCashRows.length > 0) return donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'donatur', waktu:r.created_at||'' }));
-    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donatur')).map((k:any)=>({ id:`kw-dt-${k.id}`, nama:k.nama||'Donatur', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donatur', waktu:k.created_at||'' }));
+    const fromTable = donasiCashRows.length > 0 ? donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'donatur', waktu:r.created_at||'' })) : [];
+    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donatur')).map((k:any)=>({ id:`kw-dt-${k.id}`, nama:k.nama||'Donatur', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donatur', waktu:k.created_at||'' }));
+    return [...fromTable, ...fromKeuangan];
   },[donasiCashRows, keuanganRowsRaw]);
 
   const sponsorEntries = useMemo(()=>{
-    if (sponsorRows.length > 0) return sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor', logo:r.logo||'' }));
+    const fromTable = sponsorRows.length > 0 ? sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor', logo:r.logo||'' })) : [];
     const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'sponsor', waktu:k.created_at||'', deskripsi:k.keterangan||'Sponsor', logo:'' }));
-    if (fromKeuangan.length > 0) return fromKeuangan;
-    // fallback ke sponsor state admin agar slide tetap tampil jika tabel sponsor supabase kosong
-    return sponsors.map((s:any)=>({ id:s.id, nama:s.nama, jumlah:0, sumber:s.website||'sponsor', waktu:'', deskripsi:s.deskripsi||'Sponsor', logo:s.logo||'' }));
-  },[sponsorRows, keuanganRowsRaw, sponsors]);
+    return [...fromTable, ...fromKeuangan];
+  },[sponsorRows, keuanganRowsRaw]);
 
   const donasiEntries = useMemo(()=>{
     const direct = [...donasiRowsRaw, ...donasiCashRows, ...donasiOnlineRows];
@@ -854,6 +747,8 @@ export default function App() {
           </div>
         </div>
       </section>
+
+      {renderPesertaRealtime()}
 
       <section id="panitia" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid gap-4">
         <div className="bg-white rounded-2xl shadow border overflow-hidden"><div className="p-5 pb-3 flex justify-between"><h3 className="font-black text-[15px]">👥 Susunan Panitia</h3><span className="text-[10px] px-2 py-1 bg-zinc-100 border rounded-full font-bold">RT 002/RW 014</span></div><div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="bg-[#C1272D] text-white text-[11px] uppercase"><th className="text-left px-4 py-2.5">Jabatan</th><th className="text-left px-4 py-2.5">Nama</th></tr></thead><tbody>{PANITIA_DATA.map((r,i)=>(<tr key={r.jabatan} className={i%2?'bg-white':'bg-[#FFF7ED]'}><td className="px-4 py-2.5 font-semibold">{r.jabatan}</td><td className="px-4 py-2.5">{r.nama}</td></tr>))}</tbody></table></div></div>
@@ -1187,14 +1082,14 @@ alter table keuangan enable row level security; create policy "public_all" on ke
           <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur" onClick={()=>setShowPanitiaLogin(false)} />
           <div className="relative w-full max-w-[380px] bg-white rounded-[20px] p-6 shadow-2xl">
             <h3 className="font-black">🔒 Login Panel Panitia</h3>
-            <p className="text-[11px] text-zinc-500 mt-1"></p>
+            <p className="text-[11px] text-zinc-500 mt-1">Pisah Password — Panitia & Owner kontrol penuh</p>
             <div className="mt-3 bg-zinc-50 border rounded-xl p-3 text-[10px] leading-4">
-              <div className="font-bold"></div>
-              <div></div>
-              <div></div>
-              <div></div>
-              <div className="mt-2 font-bold"></div>
-              <div></div>
+              <div className="font-bold">Panitia:</div>
+              <div>admin / mawar81 (Administrator)</div>
+              <div>eka / pj2026! , bayu / ketua2026! , aulia / bendahara2026!</div>
+              <div>sugiono / wakil2026! , lani / sekretaris2026! , puput / bendahara2!</div>
+              <div className="mt-2 font-bold">Owner:</div>
+              <div>owner / owner81 , superadmin / super2026!</div>
             </div>
             <form onSubmit={(e)=>{ e.preventDefault(); loginPanitia(); }}>
               <input value={loginUsername} onChange={e=>setLoginUsername(e.target.value)} placeholder="Username (admin/eka/bayu/aulia...)" className="mt-4 w-full h-11 px-4 rounded-xl border text-[13px]" />
