@@ -352,41 +352,59 @@ export default function App() {
     return funding.reduce((sum,f)=>sum+Number(f.jumlah||0),0) + donors.reduce((sum,d)=>sum+Number(d.jumlah||0),0);
   },[funding,donors]);
 
-  // Sumber data utama untuk blok Transaksi Realtime: merge raw tabel Supabase + dedupe ringan
+  // Sumber data utama untuk blok Transaksi Realtime: RAW Supabase, dipisah CASH vs TRANSFER
+  const methodOf = (row:any) => {
+    const txt = `${row.metode||''} ${row.keterangan||''} ${row.sumber||''} ${row.alamat||''}`.toLowerCase();
+    if (txt.includes('transfer') || txt.includes('seabank') || txt.includes('bank') || txt.includes('qris') || txt.includes('online') || txt.includes('dana')) return 'transfer';
+    return 'cash';
+  };
+
+  const cashEntries = useMemo(()=>{
+    const fromKeuanganCash = keuanganRowsRaw
+      .filter((k:any)=>methodOf(k)==='cash' && !String(k.jenis||'').toLowerCase().includes('pengeluaran'))
+      .map((k:any)=>({ id:`kw-c-${k.id}`, nama:k.nama||'Cash', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'cash', waktu:k.created_at||'', jenis:k.jenis||'cash' }));
+    if (fromKeuanganCash.length > 0) return fromKeuanganCash;
+    return [
+      ...iuranRows.map((r:any)=>({ id:`iw-${r.id}`, nama:r.nama||r.sumber||'Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'cash', waktu:r.created_at||'', jenis:'iuran' })),
+      ...donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'cash', waktu:r.created_at||'', jenis:'donasi cash' })),
+    ];
+  },[iuranRows, donasiCashRows, keuanganRowsRaw]);
+
+  const transferEntries = useMemo(()=>{
+    const fromKeuanganTransfer = keuanganRowsRaw
+      .filter((k:any)=>methodOf(k)==='transfer' && !String(k.jenis||'').toLowerCase().includes('pengeluaran'))
+      .map((k:any)=>({ id:`kw-t-${k.id}`, nama:k.nama||'Transfer', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'transfer', waktu:k.created_at||'', jenis:k.jenis||'transfer' }));
+    if (fromKeuanganTransfer.length > 0) return fromKeuanganTransfer;
+    return [
+      ...donasiOnlineRows.map((r:any)=>({ id:`do-${r.id}`, nama:r.nama||'Transfer', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'transfer', waktu:r.created_at||'', jenis:'donasi online' })),
+      ...sponsorRows.map((r:any)=>({ id:`sp-t-${r.id}`, nama:r.nama||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'transfer', waktu:r.created_at||'', jenis:'sponsor' })),
+    ];
+  },[donasiOnlineRows, sponsorRows, keuanganRowsRaw]);
+
   const iuranEntries = useMemo(()=>{
-    const fromIuran = iuranRows.map((r:any)=>({ id:`iw-${r.id}`, nama:r.nama||r.sumber||'Iuran Warga', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'Iuran Warga', waktu:r.created_at||'' }));
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('iuran')).map((k:any)=>({ id:`kw-i-${k.id}`, nama:k.nama||'Iuran Warga', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'Iuran Warga', waktu:k.created_at||'' }));
-    const merged = [...fromIuran];
-    fromKeuangan.forEach((k:any)=>{ if(!merged.some((m:any)=>m.nama===k.nama && m.jumlah===k.jumlah && (!!m.waktu?m.waktu===k.waktu:true))) merged.push(k); });
-    return merged;
+    if (iuranRows.length > 0) return iuranRows.map((r:any)=>({ id:`iw-${r.id}`, nama:r.nama||r.sumber||'Iuran Warga', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'iuran warga', waktu:r.created_at||'' }));
+    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('iuran')).map((k:any)=>({ id:`kw-i-${k.id}`, nama:k.nama||'Iuran Warga', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'iuran warga', waktu:k.created_at||'' }));
   },[iuranRows, keuanganRowsRaw]);
 
   const donaturEntries = useMemo(()=>{
-    const fromCash = donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'Donatur', waktu:r.created_at||'' }));
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donatur')).map((k:any)=>({ id:`kw-dt-${k.id}`, nama:k.nama||'Donatur', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'Donatur', waktu:k.created_at||'' }));
-    const merged=[...fromCash]; fromKeuangan.forEach((k:any)=>{ if(!merged.some((m:any)=>m.nama===k.nama && m.jumlah===k.jumlah)) merged.push(k); });
-    return merged;
+    if (donasiCashRows.length > 0) return donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'donatur', waktu:r.created_at||'' }));
+    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donatur')).map((k:any)=>({ id:`kw-dt-${k.id}`, nama:k.nama||'Donatur', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donatur', waktu:k.created_at||'' }));
   },[donasiCashRows, keuanganRowsRaw]);
 
   const sponsorEntries = useMemo(()=>{
-    const fromSponsor = sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'Sponsor', waktu:r.created_at||'' }));
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'Sponsor', waktu:k.created_at||'' }));
-    const merged=[...fromSponsor]; fromKeuangan.forEach((k:any)=>{ if(!merged.some((m:any)=>m.nama===k.nama && m.jumlah===k.jumlah)) merged.push(k); });
-    return merged;
+    if (sponsorRows.length > 0) return sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor' }));
+    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'sponsor', waktu:k.created_at||'', deskripsi:k.keterangan||'Sponsor' }));
   },[sponsorRows, keuanganRowsRaw]);
 
   const donasiEntries = useMemo(()=>{
-    const fromDonasi = donasiRowsRaw.map((r:any)=>({ id:`d-${r.id}`, nama:r.nama||'Donasi', jumlah:Number(r.jumlah||0), sumber:r.alamat||r.pesan||'Donasi', waktu:r.created_at||'' }));
-    const fromOnline = donasiOnlineRows.map((r:any)=>({ id:`do-${r.id}`, nama:r.nama||'Donasi Online', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'Donasi Online', waktu:r.created_at||'' }));
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donasi')).map((k:any)=>({ id:`kw-d-${k.id}`, nama:k.nama||'Donasi', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'Donasi', waktu:k.created_at||'' }));
-    const merged=[...fromDonasi, ...fromOnline]; fromKeuangan.forEach((k:any)=>{ if(!merged.some((m:any)=>m.nama===k.nama && m.jumlah===k.jumlah)) merged.push(k); });
-    return merged;
-  },[donasiRowsRaw, donasiOnlineRows, keuanganRowsRaw]);
+    const direct = [...donasiRowsRaw, ...donasiCashRows, ...donasiOnlineRows];
+    if (direct.length > 0) return direct.map((r:any)=>({ id:`d-${r.id}`, nama:r.nama||'Donasi', jumlah:Number(r.jumlah||0), sumber:r.alamat||r.keterangan||r.pesan||'donasi', waktu:r.created_at||'' }));
+    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donasi')).map((k:any)=>({ id:`kw-d-${k.id}`, nama:k.nama||'Donasi', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donasi', waktu:k.created_at||'' }));
+  },[donasiRowsRaw, donasiCashRows, donasiOnlineRows, keuanganRowsRaw]);
 
   const pengeluaranEntries = useMemo(()=>{
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).map((k:any)=>({ id:`kw-out-${k.id}`, nama:k.nama||'Pengeluaran', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'Pengeluaran', waktu:k.created_at||'' }));
-    const merged=[...fromKeuangan]; pengeluaran.forEach((p:any)=>{ if(!merged.some((m:any)=>m.nama===p.nama && m.jumlah===p.jumlah)) merged.push({ id:p.id, nama:p.nama, jumlah:Number(p.jumlah||0), sumber:p.penerima||p.catatan||p.kategori, waktu:p.waktu||'' }); });
-    return merged;
+    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).map((k:any)=>({ id:`kw-out-${k.id}`, nama:k.nama||'Pengeluaran', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'pengeluaran', waktu:k.created_at||'' }));
+    return fromKeuangan.length > 0 ? fromKeuangan : pengeluaran.map((p:any)=>({ id:p.id, nama:p.nama, jumlah:Number(p.jumlah||0), sumber:p.penerima||p.catatan||p.kategori, waktu:p.waktu||'' }));
   },[keuanganRowsRaw, pengeluaran]);
 
   const filtered = useMemo(()=> participants.filter(p=>{
@@ -610,7 +628,7 @@ export default function App() {
             <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {transaksi.length + pengeluaran.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Pemasukan: {formatRupiah(funding.reduce((s,f)=>s+f.jumlah,0))} | Pengeluaran: {formatRupiah(pengeluaran.reduce((s,p)=>s+p.jumlah,0))}</span></div>
           </div>
           <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-5 gap-3 border-b border-white/10">
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Iuran Warga</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(iuranEntries.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{iuranEntries.length} KK</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Cash</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(cashEntries.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{cashEntries.length} transaksi cash</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donatur</div><div className="text-[18px] font-black text-[#C1272D]">{donaturEntries.length}</div><div className="text-[9px] text-zinc-500">Total donatur</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm relative overflow-hidden min-h-[78px]">
               <div className="flex items-center justify-between mb-1">
@@ -631,7 +649,7 @@ export default function App() {
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(pengeluaranEntries.reduce((s:any,p:any)=>s+Number(p.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{pengeluaranEntries.length} transaksi</div></div>
           </div>
           <div className="grid md:grid-cols-6 gap-px bg-white/10">
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-blue-400">IURAN WARGA</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{iuranEntries.slice(0,40).map((f:any)=>(<div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{f.nama||f.sumber||'Iuran Warga'}</div><div className="font-mono font-black text-[10px] text-blue-400">{formatRupiah(Number(f.jumlah||0))}</div></div>))}{iuranEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-blue-400">CASH</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{cashEntries.slice(0,40).map((f:any)=>(<div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{f.nama||f.sumber||'Cash'}</div><div className="text-[9px] text-white/50">{f.jenis||f.sumber}</div><div className="font-mono font-black text-[10px] text-blue-400">{formatRupiah(Number(f.jumlah||0))}</div></div>))}{cashEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada transaksi cash</div>}</div></div>
             <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-[#C1272D]">DONATUR</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{donaturEntries.slice(0,40).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{donaturEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
             <div className="bg-[#121212] p-3">
               <div className="text-[9px] font-bold tracking-widest uppercase text-purple-400">SPONSOR</div>
@@ -648,7 +666,7 @@ export default function App() {
             </div>
             <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-emerald-400">DONASI</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{donasiEntries.slice(0,40).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{donasiEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
             <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-orange-400">PENGELUARAN</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{pengeluaranEntries.slice(0,40).map((p:any)=>(<div key={p.id} className="bg-white/5 border border-orange-500/30 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{p.nama}</div><div className="text-[9px] text-white/50">{p.sumber||p.kategori}</div><div className="font-mono font-black text-[10px] text-orange-400">-{formatRupiah(Number(p.jumlah||0))}</div></div>))}{pengeluaranEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-yellow-400">TRANSFER</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter(t=>t.metode?.includes('transfer')).slice(0,5).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.nama}</div><div className="text-[9px] text-white/50">{t.sumber}</div><div className="font-mono font-black text-[10px] text-yellow-400">{t.jumlah<0?'-':''}{formatRupiah(Math.abs(t.jumlah))}</div></div>))}{transaksi.filter(t=>t.metode?.includes('transfer')).length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-yellow-400">TRANSFER</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transferEntries.slice(0,40).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.nama}</div><div className="text-[9px] text-white/50">{t.sumber||t.jenis}</div><div className="font-mono font-black text-[10px] text-yellow-400">{formatRupiah(Number(t.jumlah||0))}</div></div>))}{transferEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada transaksi transfer</div>}</div></div>
           </div>
           <div className="p-3 bg-black/40 border-t border-white/10 flex flex-wrap justify-between gap-2 text-[10px] text-white/50">
             <span>📊 Sinkron langsung: Iuran + Donatur + Sponsor + Donasi + Pengeluaran → Total Dana Hero & Admin Panitia</span>
