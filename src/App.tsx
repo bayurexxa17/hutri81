@@ -12,12 +12,19 @@ interface CommentItem { id: string; galleryId: string; nama: string; pesan: stri
 interface ArchiveItem { tahun: number; tema: string; peserta: number; dana: number; lomba: number; deskripsi: string; }
 
 const LOMBA_DATA: LombaItem[] = [
-  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Usia 5-15 tahun', deskripsi: 'Makan kerupuk tanpa tangan' },
-  { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Usia 7-15 tahun', deskripsi: 'Balap kelereng klasik' },
-  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 8 orang', deskripsi: 'Adu kekuatan' },
-  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu rumah tangga', deskripsi: 'Kreasi Para Ibu' },
+  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Usia 5-15 tahun', deskripsi: 'Makan kerupuk tanpa tangan untuk anak-anak' },
+  { id: 'futsal', title: 'Futsal Mini', kategori: 'remaja', emoji: '⚽', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Tim 5 pemain', deskripsi: 'Futsal Mini beregu dengan hadiah menarik di puncak' },
+  { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Usia 7-15 tahun', deskripsi: 'Balap kelereng klasik untuk anak-anak' },
+  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 8 orang', deskripsi: 'Kompetisi tarik tambang antar tim' },
+  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu rumah tangga', deskripsi: 'Kreasi Para Ibu dengan cita rasa terbaik' },
   { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Gaya Terbaik dan Terlucu' },
-  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 3', deskripsi: 'Estafet Tepung' },
+  { id: 'sambung', title: 'Salah Sambung', kategori: 'remaja', emoji: '🗣️', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Bebas', deskripsi: 'Melatih fokus dan kecepatan berpikir' },
+  { id: 'joget-bapak', title: 'Lomba Joget Kursi Bapak', kategori: 'bapak', emoji: '💃', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Bapak-bapak', deskripsi: 'Joget kursi seru untuk bapak-bapak' },
+  { id: 'penguin-anak', title: 'Lomba Estafet Penguin Anak', kategori: 'anak', emoji: '🐧', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak berpasangan', deskripsi: 'Berjalan seperti penguin menuju garis finis' },
+  { id: 'penguin-remaja', title: 'Lomba Estafet Penguin Remaja', kategori: 'remaja', emoji: '🐧', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Remaja', deskripsi: 'Estafet penguin dengan lintasan lebih panjang' },
+  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim', deskripsi: 'Memindahkan tepung dari depan ke belakang' },
+  { id: 'joget-ibu', title: 'Lomba Joget Kursi Ibu', kategori: 'ibu', emoji: '🪑', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Joget kursi dengan keseruan untuk ibu-ibu' },
+  { id: 'makeup', title: 'Lomba Make Up Buta', kategori: 'keluarga', emoji: '💄', waktu: '15:00 WIB', hadiah: 'Menarik', peserta: 'Berpasangan', deskripsi: 'Salah satu peserta merias wajah pasangannya dengan mata tertutup' },
 ];
 
 const defaultParticipants: Participant[] = [
