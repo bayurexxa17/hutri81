@@ -12,19 +12,19 @@ interface CommentItem { id: string; galleryId: string; nama: string; pesan: stri
 interface ArchiveItem { tahun: number; tema: string; peserta: number; dana: number; lomba: number; deskripsi: string; }
 
 const LOMBA_DATA: LombaItem[] = [
-  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Usia 5-15 tahun', deskripsi: 'Makan kerupuk tanpa tangan untuk anak-anak' },
-  { id: 'futsal', title: 'Futsal Mini', kategori: 'remaja', emoji: '⚽', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Tim 5 pemain', deskripsi: 'Futsal Mini beregu dengan hadiah menarik di puncak' },
-  { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Usia 7-15 tahun', deskripsi: 'Balap kelereng klasik untuk anak-anak' },
-  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim 8 orang', deskripsi: 'Kompetisi tarik tambang antar tim' },
-  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu rumah tangga', deskripsi: 'Kreasi Para Ibu dengan cita rasa terbaik' },
-  { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Gaya Terbaik dan Terlucu' },
-  { id: 'sambung', title: 'Salah Sambung', kategori: 'remaja', emoji: '🗣️', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Bebas', deskripsi: 'Melatih fokus dan kecepatan berpikir' },
-  { id: 'joget-bapak', title: 'Lomba Joget Kursi Bapak', kategori: 'bapak', emoji: '💃', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Bapak-bapak', deskripsi: 'Joget kursi seru untuk bapak-bapak' },
-  { id: 'penguin-anak', title: 'Lomba Estafet Penguin Anak', kategori: 'anak', emoji: '🐧', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak berpasangan', deskripsi: 'Berjalan seperti penguin menuju garis finis' },
-  { id: 'penguin-remaja', title: 'Lomba Estafet Penguin Remaja', kategori: 'remaja', emoji: '🐧', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Remaja', deskripsi: 'Estafet penguin dengan lintasan lebih panjang' },
-  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim', deskripsi: 'Memindahkan tepung dari depan ke belakang' },
-  { id: 'joget-ibu', title: 'Lomba Joget Kursi Ibu', kategori: 'ibu', emoji: '🪑', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Joget kursi dengan keseruan untuk ibu-ibu' },
-  { id: 'makeup', title: 'Lomba Make Up Buta', kategori: 'keluarga', emoji: '💄', waktu: '15:00 WIB', hadiah: 'Menarik', peserta: 'Berpasangan', deskripsi: 'Salah satu peserta merias wajah pasangannya dengan mata tertutup' },
+  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Anak-anak', deskripsi: 'Peserta: Anak-anak. Peralatan: Kerupuk, Tali, Tiang gantungan. Cara Bermain: Kerupuk digantung menggunakan tali. Peserta berdiri tanpa menyentuh kerupuk menggunakan tangan. Tangan harus berada di belakang badan. Pemenang adalah peserta yang paling cepat menghabiskan kerupuk.' },
+  { id: 'futsal', title: 'Futsal Mini', kategori: 'remaja', emoji: '⚽', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Tim 5 pemain', deskripsi: 'Peserta: Tim 5 pemain. Peraturan: Durasi pertandingan 2 x 10 menit. Sistem gugur. Tidak diperbolehkan bermain kasar. Keputusan wasit bersifat mutlak. Pemenang ditentukan dari jumlah gol terbanyak.' },
+  { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak', deskripsi: 'Peserta: Anak-anak. Peralatan: Sendok, Kelereng. Cara Bermain: Kelereng diletakkan di atas sendok. Sendok digigit menggunakan mulut. Tidak boleh dipegang tangan. Bila kelereng jatuh, peserta kembali ke titik awal. Peserta tercepat menjadi pemenang.' },
+  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Dua tim', deskripsi: 'Peserta: Dua tim. Peraturan: Setiap tim memiliki jumlah peserta yang sama. Tim menarik tali hingga tanda tengah melewati garis kemenangan. Best of 3.' },
+  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Waktu maksimal 60 menit. Penilaian: Kreativitas, Kerapihan, Kebersihan, Keindahan penyajian, Kesesuaian tema Kemerdekaan, Kekompakan tim, Cita rasa (opsional apabila ada dewan juri). Peserta diperbolehkan menambah dekorasi maupun bahan makanan di luar anggaran pribadi selama tidak melanggar tema lomba.' },
+  { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Cara Bermain: Mengenakan daster dengan gaya sekreatif mungkin. Berjalan di catwalk. Menampilkan pose terbaik. Boleh membawa properti sederhana. Penilaian: Kepercayaan diri, Kreativitas, Ekspresi, Penampilan, Interaksi dengan penonton.' },
+  { id: 'sambung', title: 'Salah Sambung', kategori: 'remaja', emoji: '🗣️', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Bebas', deskripsi: 'Peserta: Bebas. Cara Bermain: MC menyebutkan awal kalimat. Peserta wajib melanjutkan dengan cepat. Jawaban salah atau terlalu lama dianggap gugur. Sistem eliminasi.' },
+  { id: 'joget-bapak', title: 'Lomba Joget Kursi Bapak', kategori: 'bapak', emoji: '💃', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Bapak-bapak', deskripsi: 'Peserta: Bapak-bapak. Cara Bermain: Musik diputar. Peserta berjalan mengelilingi kursi. Saat musik berhenti peserta segera duduk. Peserta yang tidak mendapatkan kursi gugur. Kursi dikurangi setiap ronde.' },
+  { id: 'penguin-anak', title: 'Lomba Estafet Penguin Anak', kategori: 'anak', emoji: '🐧', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak berpasangan', deskripsi: 'Peserta: Anak-anak berpasangan. Cara Bermain: Bola dijepit di antara kedua lutut. Berjalan seperti penguin menuju garis finis. Bola tidak boleh dipegang tangan. Bila bola jatuh kembali ke titik sebelumnya. Tim tercepat menang.' },
+  { id: 'penguin-remaja', title: 'Lomba Estafet Penguin Remaja', kategori: 'remaja', emoji: '🐧', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Remaja', deskripsi: 'Peserta: Remaja. Cara Bermain: Sama seperti Estafet Penguin Anak, namun jarak lintasan lebih panjang dan dilakukan secara estafet antar anggota tim.' },
+  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim', deskripsi: 'Peserta: Tim. Peralatan: Tepung, Gelas, Baskom. Cara Bermain: Peserta berbaris ke belakang. Tepung dipindahkan dari peserta pertama ke peserta terakhir melalui atas kepala. Tidak boleh melihat ke belakang. Tepung yang berhasil dikumpulkan paling banyak menjadi pemenang.' },
+  { id: 'joget-ibu', title: 'Lomba Joget Kursi Ibu', kategori: 'ibu', emoji: '🪑', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Cara Bermain: Sama seperti Joget Kursi Bapak. Penilaian berdasarkan ketahanan hingga babak final.' },
+  { id: 'makeup', title: 'Lomba Make Up Buta', kategori: 'keluarga', emoji: '💄', waktu: '15:00 WIB', hadiah: 'Menarik', peserta: 'Berpasangan', deskripsi: 'Peserta: Berpasangan. Peralatan: Alat make up. Cara Bermain: Salah satu peserta ditutup matanya. Peserta tersebut merias wajah pasangannya. Tidak boleh membuka penutup mata. Waktu maksimal 10 menit.' },
 ];
 
 const defaultParticipants: Participant[] = [
@@ -399,9 +399,12 @@ export default function App() {
   },[donasiCashRows, keuanganRowsRaw]);
 
   const sponsorEntries = useMemo(()=>{
-    if (sponsorRows.length > 0) return sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor' }));
-    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'sponsor', waktu:k.created_at||'', deskripsi:k.keterangan||'Sponsor' }));
-  },[sponsorRows, keuanganRowsRaw]);
+    if (sponsorRows.length > 0) return sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor', logo:r.logo||'' }));
+    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'sponsor', waktu:k.created_at||'', deskripsi:k.keterangan||'Sponsor', logo:'' }));
+    if (fromKeuangan.length > 0) return fromKeuangan;
+    // fallback ke sponsor state admin agar slide tetap tampil jika tabel sponsor supabase kosong
+    return sponsors.map((s:any)=>({ id:s.id, nama:s.nama, jumlah:0, sumber:s.website||'sponsor', waktu:'', deskripsi:s.deskripsi||'Sponsor', logo:s.logo||'' }));
+  },[sponsorRows, keuanganRowsRaw, sponsors]);
 
   const donasiEntries = useMemo(()=>{
     const direct = [...donasiRowsRaw, ...donasiCashRows, ...donasiOnlineRows];
@@ -413,6 +416,9 @@ export default function App() {
     const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).map((k:any)=>({ id:`kw-out-${k.id}`, nama:k.nama||'Pengeluaran', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'pengeluaran', waktu:k.created_at||'' }));
     return fromKeuangan.length > 0 ? fromKeuangan : pengeluaran.map((p:any)=>({ id:p.id, nama:p.nama, jumlah:Number(p.jumlah||0), sumber:p.penerima||p.catatan||p.kategori, waktu:p.waktu||'' }));
   },[keuanganRowsRaw, pengeluaran]);
+
+  const pemasukanRealtime = useMemo(()=> cashEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0) + transferEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0), [cashEntries, transferEntries]);
+  const pengeluaranRealtime = useMemo(()=> pengeluaranEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0), [pengeluaranEntries]);
 
   const filtered = useMemo(()=> participants.filter(p=>{
     const ms=!search||p.name.toLowerCase().includes(search.toLowerCase())||p.id.toLowerCase().includes(search.toLowerCase())||p.rt.toLowerCase().includes(search.toLowerCase());
@@ -632,7 +638,7 @@ export default function App() {
         <div className="bg-zinc-900 rounded-[20px] border border-zinc-800 shadow-xl overflow-hidden">
           <div className="p-4 md:p-5 flex flex-wrap justify-between gap-3 items-center border-b border-white/10">
             <div><h3 className="font-black text-[14px] text-white flex items-center gap-2"><span className="h-7 w-7 rounded-full bg-emerald-500 grid place-items-center">💳</span> Transaksi Keuangan Realtime — QRIS Dana & Transfer Bank <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /></h3><p className="text-[11px] text-white/60 mt-1">Iuran / Donatur / Sponsor / Donasi / Pengeluaran — Setiap transaksi langsung terkoneksi & sinkron ke Total Dana, Ringkasan Anggaran, dan Panel Panitia.</p></div>
-            <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {transaksi.length + pengeluaran.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Pemasukan: {formatRupiah(funding.reduce((s,f)=>s+f.jumlah,0))} | Pengeluaran: {formatRupiah(pengeluaran.reduce((s,p)=>s+p.jumlah,0))}</span></div>
+            <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {cashEntries.length + transferEntries.length + pengeluaranEntries.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Pemasukan: {formatRupiah(pemasukanRealtime)} | Pengeluaran: {formatRupiah(pengeluaranRealtime)}</span></div>
           </div>
           <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-5 gap-3 border-b border-white/10">
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Cash</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(cashEntries.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{cashEntries.length} transaksi cash</div></div>
@@ -652,7 +658,7 @@ export default function App() {
               )) : <div className="text-[11px] text-zinc-400">Belum ada sponsor</div>}
               <div className="absolute bottom-2 right-3 flex gap-1">{sponsorEntries.map((_:any,idx:number)=><button key={idx} onClick={()=>setSponsorSlideIdx(idx)} className={`h-1.5 rounded-full transition-all ${idx===sponsorSlideIdx?'w-4 bg-purple-500':'w-1.5 bg-zinc-300'}`}></button>)}</div>
             </div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(donasiEntries.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">Total donasi terkumpul</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(donasiEntries.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{donasiEntries.length} transaksi donasi</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(pengeluaranEntries.reduce((s:any,p:any)=>s+Number(p.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{pengeluaranEntries.length} transaksi</div></div>
           </div>
           <div className="grid md:grid-cols-6 gap-px bg-white/10">
@@ -661,13 +667,13 @@ export default function App() {
             <div className="bg-[#121212] p-3">
               <div className="text-[9px] font-bold tracking-widest uppercase text-purple-400">SPONSOR</div>
               <div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">
-                {funding.filter(f=>f.kategori==='sponsor').slice(0,5).map((f:any)=>(
+                {sponsorEntries.slice(0,40).map((f:any)=>(
                   <div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2">
-                    <div className="font-bold text-[10px] text-white">{f.sumber}</div>
-                    <div className="font-mono font-black text-[10px] text-purple-400">{formatRupiah(f.jumlah)}</div>
+                    <div className="font-bold text-[10px] text-white">{f.nama||f.sumber}</div>
+                    <div className="font-mono font-black text-[10px] text-purple-400">{formatRupiah(Number(f.jumlah||0))}</div>
                   </div>
                 ))}
-                {funding.filter(f=>f.kategori==='sponsor').length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}
+                {sponsorEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}
               </div>
               <p className="text-[9px] text-white/50 mt-2 text-center">Slideshow sponsor dipindah ke kartu putih Sponsor di atas.</p>
             </div>
@@ -988,7 +994,26 @@ alter table keuangan enable row level security; create policy "public_all" on ke
         </div>
       )}
 
-      {showLomba && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowLomba(null)} /><div className="relative w-full max-w-[420px] bg-white rounded-[20px] p-5"><div className="flex justify-between"><div className="h-12 w-12 rounded-2xl bg-[#F9E2E2] text-[#C1272D] grid place-items-center text-xl">{showLomba.emoji}</div><button onClick={()=>setShowLomba(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div><h3 className="mt-4 font-black text-[18px]">{showLomba.title}</h3><p className="text-[13px] text-zinc-600 mt-1">{showLomba.deskripsi}</p><div className="mt-4 grid grid-cols-3 gap-2 text-[11px]"><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>⏰</div><div className="font-bold">{showLomba.waktu}</div></div><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>🏆</div><div className="font-bold">{showLomba.hadiah}</div></div><div className="bg-zinc-50 border rounded-xl p-2 text-center"><div>👥</div><div className="font-bold">{showLomba.peserta}</div></div></div><div className="mt-5 flex gap-2"><button onClick={()=>setShowLomba(null)} className="flex-1 h-10 rounded-full bg-zinc-100 border font-bold text-[12px]">Tutup</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:[...f.lomba,showLomba.title] })); setShowLomba(null); setShowRegister(true); }} className="flex-1 h-10 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">📝 Daftar</button></div></div></div>)}
+      {showLomba && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowLomba(null)} />
+          <div className="relative w-full max-w-[560px] bg-white rounded-[20px] p-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between"><div className="h-12 w-12 rounded-2xl bg-[#F9E2E2] text-[#C1272D] grid place-items-center text-xl">{showLomba.emoji}</div><button onClick={()=>setShowLomba(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
+            <h3 className="mt-4 font-black text-[18px]">{showLomba.title}</h3>
+            <div className="text-[11px] text-zinc-500 mt-1">{showLomba.kategori} • {showLomba.waktu} • {showLomba.hadiah}</div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Peserta</div><div className="font-bold mt-1">{showLomba.peserta}</div></div>
+              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Waktu</div><div className="font-bold mt-1">{showLomba.waktu}</div></div>
+              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Hadiah</div><div className="font-bold mt-1">{showLomba.hadiah}</div></div>
+            </div>
+            <div className="mt-4 bg-[#FFF7ED] border rounded-xl p-4">
+              <div className="font-bold text-[12px] mb-2">Deskripsi & Tata Cara</div>
+              <div className="text-[12px] text-zinc-700 leading-6 whitespace-pre-line">{showLomba.deskripsi.replace(/\. /g, '.\n')}</div>
+            </div>
+            <div className="mt-5 flex gap-2"><button onClick={()=>setShowLomba(null)} className="flex-1 h-10 rounded-full bg-zinc-100 border font-bold text-[12px]">Tutup</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:[...f.lomba,showLomba.title] })); setShowLomba(null); setShowRegister(true); }} className="flex-1 h-10 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">📝 Daftar</button></div>
+          </div>
+        </div>
+      )}
       {showDetail && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowDetail(null)} /><div className="relative w-full max-w-[480px] bg-white rounded-[20px] p-5"><div className="flex justify-between"><h3 className="font-black text-[14px]">{(ANGGARAN_DETAIL as any)[showDetail]?.title}</h3><button onClick={()=>setShowDetail(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div><div className="mt-4 space-y-2">{(ANGGARAN_DETAIL as any)[showDetail]?.items.map((it:any,i:number)=>(<div key={i} className="flex justify-between text-[12px] p-2.5 rounded-xl bg-zinc-50 border"><span>{it.nama} ({it.qty})</span><span className="font-mono font-bold">{formatRupiah(it.harga)}</span></div>))}</div></div></div>)}
       {showPanitiaLogin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
