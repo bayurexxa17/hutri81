@@ -296,16 +296,21 @@ export default function App() {
         }));
         setParticipants(mappedPeserta);
 
-        const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, inventoryRows, commentRows] = await Promise.all([
+        // Fetch from Supabase - try multiple table names for compatibility
+        const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, pendanaanRows, inventoryRows, commentRows] = await Promise.all([
           fetchTable('donasi'),
           fetchTable('donasi cash'),
           fetchTable('donasi online'),
           fetchTable('iuran warga'),
           fetchTable('sponsor'),
           fetchTable('keuangan'),
+          fetchTable('pendanaan'),
           fetchTable('inventory'),
           fetchTable('komentar galeri'),
         ]);
+
+        // Merge keuangan and pendanaan tables for backwards compatibility
+        const mergedKeuangan = [...(keuanganRows || []), ...(pendanaanRows || [])].filter((v,i,a)=>a.findIndex(v2=>v2.id===v.id)===i);
 
         // raw states per tabel supabase agar blok transaksi realtime sinkron persis dengan tabel database
         setIuranRows(iuranRowsData);
@@ -313,7 +318,7 @@ export default function App() {
         setDonasiCashRows(donasiCashRowsData);
         setDonasiOnlineRows(donasiOnlineRowsData);
         setSponsorRows(sponsorRowsData);
-        setKeuanganRowsRaw(keuanganRows);
+        setKeuanganRowsRaw(mergedKeuangan);
 
         const mappedDonors: Donor[] = [
           ...donasiRows.map((d:any)=>({ id:`don-${d.id}`, name:d.nama||'Donatur', alamat:d.alamat||'-', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'donasi', jenis:'donasi' })),
@@ -371,7 +376,7 @@ export default function App() {
       }
     };
 
-    ['pendaftar','donasi','donasi cash','donasi online','iuran warga','sponsor','keuangan','inventory','komentar galeri'].forEach(subscribe);
+    ['pendaftar','donasi','donasi cash','donasi online','iuran warga','sponsor','keuangan','pendanaan','inventory','komentar galeri'].forEach(subscribe);
 
     return ()=>{
       channels.forEach(ch=>{ try{ supabase.removeChannel(ch); }catch{} });
