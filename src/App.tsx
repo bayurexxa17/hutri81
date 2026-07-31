@@ -749,63 +749,6 @@ export default function App() {
         </div>
       </section>
 
-      {renderPesertaRealtime()}
-
-      <section id="talenta" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="bg-white rounded-2xl border-2 border-amber-100 shadow-sm p-5 md:p-6">
-          <div className="text-center">
-            <h3 className="font-black text-[18px]">TALENTA ANAK MALAM PUNCAK HUT RI KE-81</h3>
-            <p className="text-[11px] text-zinc-500">Malam Puncak — 22 Agustus 2026</p>
-            <div className="mt-3 flex justify-center gap-2">
-              <button onClick={downloadTalenta} className="h-8 px-4 rounded-full bg-blue-600 text-white text-[11px] font-bold">Download (CSV)</button>
-              <button onClick={()=>window.print()} className="h-8 px-4 rounded-full bg-zinc-800 text-white text-[11px] font-bold">Cetak / Save PDF</button>
-            </div>
-          </div>
-          <div className="mt-6 overflow-x-auto">
-            <table className="w-full text-[11px] min-w-[760px]">
-              <thead>
-                <tr className="bg-[#8B1A1E] text-white text-[10px] tracking-widest uppercase">
-                  <th className="text-left px-3 py-2.5">No</th>
-                  <th className="text-left px-3 py-2.5">Jenis Penampilan</th>
-                  <th className="text-left px-3 py-2.5">Nama Peserta</th>
-                  <th className="text-center px-3 py-2.5">Jumlah</th>
-                  <th className="text-center px-3 py-2.5">Durasi</th>
-                  <th className="text-left px-3 py-2.5">Penanggung Jawab</th>
-                  <th className="text-center px-3 py-2.5">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {talents.map(t=>(
-                  <tr key={t.id} className="border-b last:border-0">
-                    <td className="px-3 py-2.5 font-bold">{t.no}</td>
-                    <td className="px-3 py-2.5">{t.jenis}</td>
-                    <td className="px-3 py-2.5">{t.peserta}</td>
-                    <td className="px-3 py-2.5 text-center">{t.jumlah||'___'}</td>
-                    <td className="px-3 py-2.5 text-center">{t.durasi||'___'} Menit</td>
-                    <td className="px-3 py-2.5">{t.penanggungJawab||'__________________'}</td>
-                    <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={t.status} readOnly className="h-4 w-4" /></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-[#FFF7ED]">
-                  <td colSpan={7} className="px-3 py-3 font-black text-[#C1272D]">
-                    Total Peserta Saat Ini:<br/>
-                    Tari Zapin : ± ___ orang (silakan lengkapi jumlah "dkk")<br/>
-                    Tari Gugur Gunung : 5 orang<br/>
-                    Piano : 1 orang<br/>
-                    Tarian Persembahan : 5 orang<br/>
-                    Tarian Tor Tor : 14 orang<br/>
-                    <br/>
-                    Total sementara (tanpa menghitung "dkk" Tari Zapin): 25 peserta + peserta "dkk" Tari Zapin.
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <section id="panitia" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid gap-4">
         <div className="bg-white rounded-2xl shadow border overflow-hidden"><div className="p-5 pb-3 flex justify-between"><h3 className="font-black text-[15px]">👥 Susunan Panitia</h3><span className="text-[10px] px-2 py-1 bg-zinc-100 border rounded-full font-bold">RT 002/RW 014</span></div><div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="bg-[#C1272D] text-white text-[11px] uppercase"><th className="text-left px-4 py-2.5">Jabatan</th><th className="text-left px-4 py-2.5">Nama</th></tr></thead><tbody>{PANITIA_DATA.map((r,i)=>(<tr key={r.jabatan} className={i%2?'bg-white':'bg-[#FFF7ED]'}><td className="px-4 py-2.5 font-semibold">{r.jabatan}</td><td className="px-4 py-2.5">{r.nama}</td></tr>))}</tbody></table></div></div>
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden"><div className="p-5 pb-3 flex justify-between"><h3 className="font-black text-[15px]">🧮 Ringkasan Anggaran</h3><span className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold">Transparan</span></div><div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="bg-[#C1272D] text-white text-[11px] uppercase"><th className="text-left px-4 py-2.5">Komponen</th><th className="text-right px-4 py-2.5">Jumlah</th><th className="text-left px-4 py-2.5">Detail</th></tr></thead><tbody>{ANGGARAN_DATA.map((row,i)=>(<tr key={row.komponen} className={`${(row as any).total?'bg-[#F9E2E2] font-black text-[#C1272D]':(row as any).masuk?'bg-emerald-50 font-bold text-emerald-700':(row as any).selisih?'bg-blue-50 font-black text-blue-700':i%2?'bg-white':'bg-[#FFF7ED]'} border-b`}><td className="px-4 py-3">{row.komponen}</td><td className="px-4 py-3 text-right font-mono font-bold">{formatRupiah(row.jumlah)}</td><td className="px-4 py-3">{(row as any).detail?<button onClick={()=>setShowDetail((row as any).detail)} className="text-[11px] px-3 py-1 rounded-full border border-[#C1272D] text-[#C1272D] font-bold">Lihat Detail</button>:<span className="text-zinc-400 text-[11px]">-</span>}</td></tr>))}</tbody></table></div></div>
@@ -1071,25 +1014,6 @@ create table keuangan (id BIGSERIAL primary key, nama text, jenis text, jumlah b
 alter table keuangan enable row level security; create policy "public_all" on keuangan for all using (true) with check (true);`}</pre></div>
                       </div>
                     )}
-                  </div>
-                )}
-                {adminTab==='talenta' && (
-                  <div className="space-y-4">
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]"> Tambah Talenta Malam Puncak 22 Agustus 2026</h4><p className="text-[11px] text-zinc-500 mt-1">Input/edit data peserta talenta anak untuk malam puncak</p><div className="mt-3 grid md:grid-cols-2 gap-2">
-                      <input value={newTalent.jenis} onChange={e=>setNewTalent({...newTalent, jenis:e.target.value})} placeholder="Jenis Penampilan" className="h-10 px-3 rounded-xl border text-[12px]" />
-                      <input value={newTalent.peserta} onChange={e=>setNewTalent({...newTalent, peserta:e.target.value})} placeholder="Nama Peserta (pisahkan koma)" className="h-10 px-3 rounded-xl border text-[12px]" />
-                      <input type="number" value={newTalent.jumlah} onChange={e=>setNewTalent({...newTalent, jumlah:e.target.value})} placeholder="Jumlah Peserta" className="h-10 px-3 rounded-xl border text-[12px]" />
-                      <input value={newTalent.durasi} onChange={e=>setNewTalent({...newTalent, durasi:e.target.value})} placeholder="Durasi (menit)" className="h-10 px-3 rounded-xl border text-[12px]" />
-                      <input value={newTalent.penanggungJawab} onChange={e=>setNewTalent({...newTalent, penanggungJawab:e.target.value})} placeholder="Penanggung Jawab" className="h-10 px-3 rounded-xl border text-[12px] md:col-span-2" />
-                    </div>
-                    <div className="mt-2 flex items-center gap-2"><input type="checkbox" checked={newTalent.status} onChange={e=>setNewTalent({...newTalent, status:e.target.checked})} /><span className="text-[12px]">Status Siap</span></div>
-                    <button onClick={()=>{
-                      if(!newTalent.jenis||!newTalent.peserta) return alert('Lengkapi jenis & nama peserta');
-                      const nt:any = { id:`tal-${Date.now()}`, no: talents.length+1, jenis:newTalent.jenis, peserta:newTalent.peserta, jumlah:newTalent.jumlah||'', durasi:newTalent.durasi||'', penanggungJawab:newTalent.penanggungJawab||'', status:newTalent.status };
-                      setTalents(prev=>[...prev, nt]);
-                      setNewTalent({ id:'', no:0, jenis:'', peserta:'', jumlah:'', durasi:'', penanggungJawab:'', status:false });
-                    }} className="h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">+ Tambah Talenta</button>
-                    <div className="mt-4"><h4 className="font-black text-[13px]">Daftar Talenta — {talents.length} item</h4><div className="mt-3 grid gap-2 max-h-[400px] overflow-y-auto">{talents.map(t=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.no}. {t.jenis}</div><div className="text-[9px] text-white/50">{t.peserta} • {t.jumlah||'___'} • {t.durasi||'___'} menit • {t.penanggungJawab||'___'}</div></div>))}</div></div>
                   </div>
                 )}
               </div>
