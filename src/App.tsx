@@ -122,6 +122,12 @@ export default function App() {
   const [donors, setDonors] = useState<Donor[]>(()=>{ try{ const s=localStorage.getItem('hutri-donors-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
   const [funding, setFunding] = useState<Funding[]>(()=>{ try{ const s=localStorage.getItem('hutri-funding-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
   const [transaksi, setTransaksi] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-transaksi'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
+  const [iuranRows, setIuranRows] = useState<any[]>([]);
+  const [donasiRowsRaw, setDonasiRowsRaw] = useState<any[]>([]);
+  const [donasiCashRows, setDonasiCashRows] = useState<any[]>([]);
+  const [donasiOnlineRows, setDonasiOnlineRows] = useState<any[]>([]);
+  const [sponsorRows, setSponsorRows] = useState<any[]>([]);
+  const [keuanganRowsRaw, setKeuanganRowsRaw] = useState<any[]>([]);
   const [gallery, setGallery] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-gallery'); if(s) return JSON.parse(s); }catch{} return DEFAULT_GALLERY; });
   const [inventory, setInventory] = useState<InventoryItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-inventory'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
   const [comments, setComments] = useState<CommentItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-comments'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
@@ -258,7 +264,7 @@ export default function App() {
         }));
         setParticipants(mappedPeserta);
 
-        const [donasiRows, donasiCashRows, donasiOnlineRows, iuranRows, sponsorRows, keuanganRows, inventoryRows, commentRows] = await Promise.all([
+        const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, inventoryRows, commentRows] = await Promise.all([
           fetchTable('donasi'),
           fetchTable('donasi cash'),
           fetchTable('donasi online'),
@@ -268,6 +274,14 @@ export default function App() {
           fetchTable('inventory'),
           fetchTable('komentar galeri'),
         ]);
+
+        // raw states per tabel supabase agar blok transaksi realtime sinkron persis dengan tabel database
+        setIuranRows(iuranRowsData);
+        setDonasiRowsRaw(donasiRows);
+        setDonasiCashRows(donasiCashRowsData);
+        setDonasiOnlineRows(donasiOnlineRowsData);
+        setSponsorRows(sponsorRowsData);
+        setKeuanganRowsRaw(keuanganRows);
 
         const mappedDonors: Donor[] = [
           ...donasiRows.map((d:any)=>({ id:`don-${d.id}`, name:d.nama||'Donatur', alamat:d.alamat||'-', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'donasi', jenis:'donasi' })),
@@ -356,7 +370,7 @@ export default function App() {
     setHighlightId(newP.id); setTimeout(()=>setHighlightId(null),4000);
     setFormData({ name:'', rt:'', hp:'', lomba:[], catatan:'' }); setShowRegister(false);
     try{ const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-peserta', data:newP }); setTimeout(()=>bc.close(),100); }catch{}
-    (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('pendaftar').insert([{ nama:newP.name, telepon:newP.hp, rt:newP.rt, lomba:newP.lomba.join(', '), catatan:newP.catatan }]); }catch{} })();
+    (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('pendaftar').insert([{ nama:newP.name, telepon:newP.hp, rt:newP.rt, lomba:newP.lomba.join(', '), catatan:newP.catatan }]); }catch{} finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); } })();
     setTimeout(()=>setIsSubmitting(false),300);
   };
 
@@ -373,6 +387,7 @@ export default function App() {
         await admin.from('donasi online').insert([{ nama:newD.name, alamat:newD.alamat, jumlah:newD.jumlah, keterangan:newD.pesan||'Donasi Online', is_anon:newD.isAnon }]);
         await admin.from('keuangan').insert([{ nama:newD.name, jenis:'donasi online', jumlah:newD.jumlah, keterangan:`${newD.alamat} / ${newD.pesan||'-'}`, is_anon:newD.isAnon }]);
       }catch(e){ console.warn('donasi sync error', e); }
+      finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); }
     })();
     alert('Terima kasih! Donasi masuk realtime ke Supabase.');
   };
@@ -426,15 +441,14 @@ export default function App() {
     (async()=>{
       try{
         const admin=getSupabaseAdmin();
-        // tulis ke tabel utama keuangan
         await admin.from('keuangan').insert([{ nama:nf.sumber, jenis:nf.kategori, jumlah:nf.jumlah, keterangan:nf.metode, is_anon:false }]);
-        // tulis juga ke tabel spesifik sesuai jenis di Supabase user
         if (nf.kategori==='iuran') await admin.from('iuran warga').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
         if (nf.kategori==='sponsor') await admin.from('sponsor').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
         if (nf.kategori==='donatur') await admin.from('donasi cash').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:'Donatur / '+nf.metode }]);
         if (nf.kategori==='donasi' || nf.kategori==='donasi_online') await admin.from('donasi online').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
         if (nf.kategori==='donasi_cash') await admin.from('donasi cash').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
       }catch(e:any){ alert('Gagal sync Supabase keuangan: '+(e.message||e)); }
+      finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); }
     })();
     setNewFunding({ sumber:'', jumlah:'', kategori:'iuran', metode:'cash' });
   };
@@ -558,8 +572,8 @@ export default function App() {
             <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {transaksi.length + pengeluaran.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Pemasukan: {formatRupiah(funding.reduce((s,f)=>s+f.jumlah,0))} | Pengeluaran: {formatRupiah(pengeluaran.reduce((s,p)=>s+p.jumlah,0))}</span></div>
           </div>
           <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-5 gap-3 border-b border-white/10">
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Iuran Warga</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(funding.filter(f=>f.kategori==='iuran').reduce((s,f)=>s+f.jumlah,0))}</div><div className="text-[9px] text-zinc-500">{funding.filter(f=>f.kategori==='iuran').length} KK</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donatur</div><div className="text-[18px] font-black text-[#C1272D]">{donors.length + funding.filter(f=>f.kategori==='donatur').length}</div><div className="text-[9px] text-zinc-500">Total donatur</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Iuran Warga</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(iuranRows.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{iuranRows.length} KK</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donatur</div><div className="text-[18px] font-black text-[#C1272D]">{donasiRowsRaw.length + donasiCashRows.length}</div><div className="text-[9px] text-zinc-500">Total donatur</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm relative overflow-hidden min-h-[78px]">
               <div className="flex items-center justify-between mb-1">
                 <div className="text-[10px] font-bold text-zinc-500">Sponsor</div>
@@ -588,12 +602,12 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(funding.filter(f=>f.kategori.startsWith('donasi')).reduce((s,f)=>s+f.jumlah,0) + donors.reduce((s,d)=>s+d.jumlah,0))}</div><div className="text-[9px] text-zinc-500">Total donasi</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(pengeluaran.reduce((s,p)=>s+p.jumlah,0))}</div><div className="text-[9px] text-zinc-500">{pengeluaran.length} transaksi</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(donasiRowsRaw.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0) + donasiCashRows.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0) + donasiOnlineRows.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">Total donasi terkumpul</div></div>
+            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).reduce((s:any,k:any)=>s+Number(k.jumlah||0),0) + pengeluaran.reduce((s:any,p:any)=>s+Number(p.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).length + pengeluaran.length} transaksi</div></div>
           </div>
           <div className="grid md:grid-cols-6 gap-px bg-white/10">
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-blue-400">IURAN WARGA</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{funding.filter(f=>f.kategori==='iuran').slice(0,5).map((f:any)=>(<div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{f.sumber}</div><div className="font-mono font-black text-[10px] text-blue-400">{formatRupiah(f.jumlah)}</div></div>))}{funding.filter(f=>f.kategori==='iuran').length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-[#C1272D]">DONATUR</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{[...donors, ...funding.filter(f=>f.kategori==='donatur')].slice(0,5).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.name||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(d.jumlah)}</div></div>))}{(donors.length+funding.filter(f=>f.kategori==='donatur').length)===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-blue-400">IURAN WARGA</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{iuranRows.slice(0,5).map((f:any)=>(<div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{f.nama||f.sumber||'Iuran Warga'}</div><div className="font-mono font-black text-[10px] text-blue-400">{formatRupiah(Number(f.jumlah||0))}</div></div>))}{iuranRows.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-[#C1272D]">DONATUR</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{[...donasiRowsRaw, ...donasiCashRows].slice(0,5).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.name||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{(donasiRowsRaw.length+donasiCashRows.length)===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
             <div className="bg-[#121212] p-3">
               <div className="text-[9px] font-bold tracking-widest uppercase text-purple-400">SPONSOR</div>
               <div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">
@@ -607,8 +621,8 @@ export default function App() {
               </div>
               <p className="text-[9px] text-white/50 mt-2 text-center">Slideshow sponsor dipindah ke kartu putih Sponsor di atas.</p>
             </div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-emerald-400">DONASI</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{donors.slice(0,5).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.name}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(d.jumlah)}</div></div>))}{donors.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-orange-400">PENGELUARAN</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{pengeluaran.slice(0,5).map((p:any)=>(<div key={p.id} className="bg-white/5 border border-orange-500/30 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{p.nama}</div><div className="text-[9px] text-white/50">{p.penerima||p.kategori}</div><div className="font-mono font-black text-[10px] text-orange-400">-{formatRupiah(p.jumlah)}</div></div>))}{pengeluaran.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-emerald-400">DONASI</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{[...donasiRowsRaw, ...donasiCashRows, ...donasiOnlineRows].slice(0,5).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.name}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{(donasiRowsRaw.length+donasiCashRows.length+donasiOnlineRows.length)===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
+            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-orange-400">PENGELUARAN</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{[...keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).map((k:any)=>({ id:k.id, nama:k.nama, jumlah:k.jumlah, penerima:k.keterangan, kategori:k.jenis })), ...pengeluaran].slice(0,5).map((p:any)=>(<div key={p.id} className="bg-white/5 border border-orange-500/30 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{p.nama}</div><div className="text-[9px] text-white/50">{p.penerima||p.kategori}</div><div className="font-mono font-black text-[10px] text-orange-400">-{formatRupiah(Number(p.jumlah||0))}</div></div>))}{(keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).length+pengeluaran.length)===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
             <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-yellow-400">TRANSFER</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transaksi.filter(t=>t.metode?.includes('transfer')).slice(0,5).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.nama}</div><div className="text-[9px] text-white/50">{t.sumber}</div><div className="font-mono font-black text-[10px] text-yellow-400">{t.jumlah<0?'-':''}{formatRupiah(Math.abs(t.jumlah))}</div></div>))}{transaksi.filter(t=>t.metode?.includes('transfer')).length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
           </div>
           <div className="p-3 bg-black/40 border-t border-white/10 flex flex-wrap justify-between gap-2 text-[10px] text-white/50">
