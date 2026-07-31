@@ -449,7 +449,13 @@ export default function App() {
               {sponsors.length>0 ? sponsors.map((s,idx)=>(
                 <div key={s.id} className={`absolute inset-x-3 top-7 transition-opacity duration-500 ${idx===sponsorSlideIdx?'opacity-100':'opacity-0 pointer-events-none'}`}>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-zinc-100 grid place-items-center text-[18px] shrink-0">{s.logo||'🏪'}</div>
+                    <div className="h-10 w-10 rounded-lg bg-zinc-100 overflow-hidden grid place-items-center text-[18px] shrink-0">
+                      {typeof s.logo === 'string' && (s.logo.startsWith('/') || s.logo.startsWith('http')) ? (
+                        <img src={s.logo} alt={s.nama} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{s.logo||'🏪'}</span>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-black text-[12px] text-purple-700 truncate">{s.nama}</div>
                       <div className="text-[10px] text-zinc-500 truncate">{s.deskripsi}</div>
@@ -739,7 +745,7 @@ export default function App() {
                         <input value={newSponsor.website} onChange={e=>setNewSponsor({...newSponsor, website:e.target.value})} placeholder="Website" className="h-10 px-3 rounded-xl border text-[12px]" />
                         <button onClick={saveSponsor} className="h-10 rounded-xl bg-purple-600 text-white font-black text-[12px] col-span-2">+ Tambah Sponsor</button>
                       </div>
-                      <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[200px] overflow-y-auto">{sponsors.map(s=>(<div key={s.id} className="border rounded-xl p-2 flex items-center gap-2 bg-zinc-50"><div className="h-10 w-10 rounded-lg bg-white grid place-items-center text-[20px]">{s.logo||'🏪'}</div><div className="flex-1 min-w-0"><div className="font-bold text-[11px] truncate">{s.nama}</div><div className="text-[10px] text-zinc-500 truncate">{s.deskripsi}</div></div><button onClick={()=>setSponsors(sponsors.filter(x=>x.id!==s.id))} className="h-6 px-2 rounded-full bg-red-500 text-white text-[10px]">Hapus</button></div>))}</div>
+                      <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[200px] overflow-y-auto">{sponsors.map(s=>(<div key={s.id} className="border rounded-xl p-2 flex items-center gap-2 bg-zinc-50"><div className="h-10 w-10 rounded-lg bg-white overflow-hidden grid place-items-center text-[20px]">{typeof s.logo === 'string' && (s.logo.startsWith('/') || s.logo.startsWith('http')) ? <img src={s.logo} alt={s.nama} className="w-full h-full object-cover" /> : (s.logo||'🏪')}</div><div className="flex-1 min-w-0"><div className="font-bold text-[11px] truncate">{s.nama}</div><div className="text-[10px] text-zinc-500 truncate">{s.deskripsi}</div></div><button onClick={()=>setSponsors(sponsors.filter(x=>x.id!==s.id))} className="h-6 px-2 rounded-full bg-red-500 text-white text-[10px]">Hapus</button></div>))}</div>
                     </div>
                   </div>
                 )}
