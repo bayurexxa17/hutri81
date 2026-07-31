@@ -10,6 +10,7 @@ interface GalleryItem { id: string; type: 'image'|'video'; src: string; title: s
 interface InventoryItem { id: string; nama: string; kategori: 'peralatan'|'aksesoris'|'dekorasi'|'sound'|'lainnya'; jumlah: number; kondisi: 'baik'|'rusak'|'hilang'; lokasi: string; penanggungJawab: string; }
 interface CommentItem { id: string; galleryId: string; nama: string; pesan: string; waktu: string; }
 interface ArchiveItem { tahun: number; tema: string; peserta: number; dana: number; lomba: number; deskripsi: string; }
+interface TalentItem { id: string; no: number; jenis: string; peserta: string; jumlah: number | ''; durasi: string; penanggungJawab: string; status: boolean; }
 
 const LOMBA_DATA: LombaItem[] = [
   { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Anak-anak', deskripsi: 'Peserta: Anak-anak. Peralatan: Kerupuk, Tali, Tiang gantungan. Cara Bermain: Kerupuk digantung menggunakan tali. Peserta berdiri tanpa menyentuh kerupuk menggunakan tangan. Tangan harus berada di belakang badan. Pemenang adalah peserta yang paling cepat menghabiskan kerupuk.' },
@@ -118,8 +119,29 @@ const DEFAULT_INVENTORY: InventoryItem[] = [
   { id: 'inv5', nama: 'Kostum Daster Fashion Show', kategori: 'aksesoris', jumlah: 15, kondisi: 'baik', lokasi: 'Rumah Aulia', penanggungJawab: 'Aulia' },
 ];
 
+const DEFAULT_TALENTS: TalentItem[] = [
+  { id: 'tal1', no: 1, jenis: 'Tari Zapin', peserta: 'Whesni, Zahra, Lexa, Lexi, Syifa, dkk', jumlah: '', durasi: '', penanggungJawab: '', status: false },
+  { id: 'tal2', no: 2, jenis: 'Tari Gugur Gunung', peserta: 'Boru, Amora, Attaya, Namira, Raya', jumlah: 5, durasi: '', penanggungJawab: '', status: false },
+  { id: 'tal3', no: 3, jenis: 'Piano (Instrumental)', peserta: 'Ameera', jumlah: 1, durasi: '', penanggungJawab: '', status: false },
+  { id: 'tal4', no: 4, jenis: 'Tarian Wajib – Persembahan', peserta: 'Alifa, Hani, Lara, Acen, Sari', jumlah: 5, durasi: '', penanggungJawab: '', status: false },
+  { id: 'tal5', no: 5, jenis: 'Tarian Wajib – Tor Tor', peserta: 'Raisa, Shira, Razka, Almera, Shakila, Nabila, Adiibah, Arumi, Mikachan, Hana, Khalisa, Nouren, Inaya, Tisha', jumlah: 14, durasi: '', penanggungJawab: '', status: false },
+];
+
 function formatRupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 function maskHp(hp: string) { if (!hp || hp.length < 7) return hp; return hp.slice(0,4)+'****'+hp.slice(-3); }
+function formatLombaDetail(desc: string) {
+  return desc
+    .replace(/Peserta:/g, 'Peserta\n')
+    .replace(/Peralatan:/g, '\n\nPeralatan\n')
+    .replace(/Cara Bermain:/g, '\n\nCara Bermain\n')
+    .replace(/Peraturan:/g, '\n\nPeraturan\n')
+    .replace(/Penilaian:/g, '\n\nPenilaian\n')
+    .replace(/Waktu maksimal 60 menit\./g, 'Waktu\nMaksimal 60 menit.\n')
+    .replace(/Pemenang ditentukan/g, '\n\nPemenang ditentukan')
+    .replace(/Peserta diperbolehkan/g, '\n\nPeserta diperbolehkan')
+    .replace(/\. /g, '.\n')
+    .trim();
+}
 
 export default function App() {
   const [countdown, setCountdown] = useState({ hari: 18, jam: 13, menit: 38, detik: 51 });
@@ -143,6 +165,8 @@ export default function App() {
     { tahun: 2025, tema: 'Bersatu dalam Keberagaman', peserta: 120, dana: 17500000, lomba: 12, deskripsi: 'HUT RI ke-80 dimeriahkan Karnaval Budaya' },
     { tahun: 2026, tema: 'Blok Mawar Bersatu — HUT RI ke-81', peserta: 13, dana: 19000000, lomba: 13, deskripsi: 'HUT RI ke-81 dengan 13 lomba dan total hadiah jutaan' },
   ]; });
+  const [talents, setTalents] = useState<TalentItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-talents'); if(s) return JSON.parse(s); }catch{} return DEFAULT_TALENTS; });
+  const [newTalent, setNewTalent] = useState<TalentItem>({ id:'', no: 0, jenis:'', peserta:'', jumlah:'', durasi:'', penanggungJawab:'', status:false });
 
   const [search, setSearch] = useState(''); const [filterLomba, setFilterLomba] = useState('Semua'); const [filterRT, setFilterRT] = useState('Semua'); const [filterKategori, setFilterKategori] = useState('Semua');
   const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString('id-ID')); const [live, setLive] = useState(true); const [highlightId, setHighlightId] = useState<string|null>(null);
@@ -155,7 +179,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(()=>{ try{ const s=localStorage.getItem('currentUser'); if(s) return JSON.parse(s); }catch{} return null; });
   const [showWA, setShowWA] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<any>(DEFAULT_GALLERY.find((g:any)=>g.type==='video')||null);
-  const [adminTab, setAdminTab] = useState<'overview'|'peserta'|'keuangan'|'pengeluaran'|'donasi'|'gallery'|'supabase'|'inventory'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview'|'peserta'|'keuangan'|'pengeluaran'|'donasi'|'gallery'|'supabase'|'inventory'|'talenta'>('overview');
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(getSupabaseConfig().url);
   const [supabaseStatus, setSupabaseStatus] = useState<'idle'|'testing'|'ok'|'fail'>('idle');
   const [editParticipant, setEditParticipant] = useState<Participant|null>(null);
@@ -196,6 +220,7 @@ export default function App() {
   useEffect(()=>{ localStorage.setItem('hutri-archive', JSON.stringify(archive)); },[archive]);
   useEffect(()=>{ localStorage.setItem('hutri-pengeluaran', JSON.stringify(pengeluaran)); },[pengeluaran]);
   useEffect(()=>{ localStorage.setItem('hutri-sponsors', JSON.stringify(sponsors)); },[sponsors]);
+  useEffect(()=>{ localStorage.setItem('hutri-talents', JSON.stringify(talents)); },[talents]);
   useEffect(()=>{ const t = setInterval(()=>setSponsorSlideIdx(prev=>(prev+1)%Math.max(1,sponsors.length)), 4000); return ()=>clearInterval(t); },[sponsors.length]);
 
   const savePengeluaran = async () => {
@@ -501,7 +526,33 @@ export default function App() {
     pengeluaran.forEach(p=>{ csv+=`"${p.nama}",${p.kategori},${p.jumlah},${p.metode},"${p.penerima||'-'}",${p.waktu},"${p.catatan||''}"\n`; });
     const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`pengeluaran-${new Date().toISOString().slice(0,10)}.csv`; a.click();
   };
+  const downloadTalenta = () => {
+    let csv='No,Jenis Penampilan,Nama Peserta,Jumlah Peserta,Durasi,Penanggung Jawab,Status\n';
+    talents.forEach(t=>{ csv += `${t.no},"${t.jenis}","${t.peserta}",${t.jumlah||''},"${t.durasi}","${t.penanggungJawab}",${t.status?'Siap':'Belum'}\n`; });
+    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`talenta-malam-puncak-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  };
   const testSupabase = async () => { setSupabaseStatus('testing'); try { const { error } = await supabase.from('pendaftar').select('id').limit(1); if(error) throw error; setSupabaseStatus('ok'); } catch { setSupabaseStatus('fail'); } };
+
+  const renderPesertaRealtime = () => (
+    <section id="peserta" ref={tableRef} className="mt-4">
+      <div className="bg-[#C1272D] relative overflow-hidden">
+        <div className="absolute inset-0"><div className="absolute -top-24 -left-24 h-[420px] w-[420px] bg-white/10 rounded-full blur-[60px]" /><div className="absolute -bottom-32 -right-32 h-[520px] w-[520px] bg-black/20 rounded-full blur-[80px]" /></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 text-white">
+            <div><div className="inline-flex items-center gap-2 bg-white text-[#C1272D] px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#C1272D]"></span></span>LIVE • REAL-TIME</div><h2 className="mt-4 text-[28px] md:text-[40px] font-black leading-[0.9] tracking-tighter">TABEL REAL-TIME<br/><span className="font-serif italic font-light opacity-90">DAFTAR PESERTA</span></h2><p className="mt-3 text-[12px] md:text-[13px] leading-6 opacity-85 max-w-[56ch]">Setiap peserta bisa daftar lebih dari 1 lomba menggunakan nama, no telp dan no rumah yang sama — tidak diblok duplikat. Edit di admin langsung replace.</p></div>
+            <div className="flex flex-wrap gap-3"><div className="bg-white/15 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 min-w-[130px]"><div className="text-[9px] font-bold tracking-widest uppercase opacity-70">TOTAL PESERTA</div><div className="text-2xl font-black leading-none mt-1">{participants.length}</div></div><div className="bg-white text-[#C1272D] rounded-2xl px-4 py-3 min-w-[160px] shadow-xl"><div className="text-[9px] font-bold tracking-widest uppercase opacity-60">UPDATE TERAKHIR</div><div className="text-[12px] font-black mt-1 font-mono">{lastUpdate} WIB</div></div></div>
+          </div>
+          <div className="mt-8 bg-white rounded-[20px] shadow-[0_24px_64px_-16px_rgba(0,0,0,.5)] border overflow-hidden">
+            <div className="p-4 md:p-5 bg-[#FFFBF2] border-b border-zinc-200 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-2.5 flex-1"><div className="relative flex-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-[12px]">🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari Nama, ID, atau RT / Blok..." className="w-full h-10 pl-9 pr-4 rounded-full bg-white border border-zinc-200 text-[13px] font-medium" /></div><select value={filterLomba} onChange={e=>setFilterLomba(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua Lomba</option>{LOMBA_DATA.map(l=><option key={l.id} value={l.title}>{l.title}</option>)}</select><select value={filterRT} onChange={e=>setFilterRT(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua RT</option><option value="RT 002">RT 002</option><option value="Mawar 83">Mawar 83</option></select></div>
+              <div className="flex items-center gap-2"><button onClick={()=>setLive(!live)} className={`h-10 px-4 rounded-full text-[11px] font-black border ${live?'bg-emerald-600 text-white border-emerald-600':'bg-white text-zinc-600 border-zinc-200'}`}>{live?'LIVE ON':'OFF'}</button><button onClick={exportCSV} className="h-10 px-4 rounded-full bg-zinc-900 text-white text-[11px] font-black">📥 Export CSV</button></div>
+            </div>
+            <div className="overflow-x-auto max-h-[520px] overflow-y-auto custom-scrollbar"><table className="w-full text-[12px] min-w-[860px]"><thead className="sticky top-0 z-10"><tr className="bg-[#8B1A1E] text-white text-[10px] tracking-widest uppercase"><th className="text-left px-4 py-3 font-black">NO / ID</th><th className="text-left px-4 py-3 font-black">PESERTA & KONTAK</th><th className="text-left px-4 py-3 font-black">LOKASI RT</th><th className="text-left px-4 py-3 font-black">LOMBA DIIKUTI</th><th className="text-left px-4 py-3 font-black">WAKTU DAFTAR</th><th className="text-center px-4 py-3 font-black">STATUS</th></tr></thead><tbody>{filtered.map((p, idx)=>(<tr key={p.id} className={`${highlightId===p.id?'bg-amber-50 border-l-4 border-l-amber-400':idx%2===0?'bg-white':'bg-[#FFFBF2]'} border-b`}><td className="px-4 py-3"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-zinc-400">{String(idx+1).padStart(2,'0')}</span><span className="font-mono font-black text-[#C1272D] text-[11px] bg-[#F9E2E2] px-2 py-0.5 rounded-full border border-red-200">{p.id}</span></div></td><td className="px-4 py-3"><div className="font-bold text-[13px]">{p.name}</div><div className="text-[10px] text-zinc-500">📱 {maskHp(p.hp)} • {p.catatan||'Live join'}</div></td><td className="px-4 py-3"><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-100 border">{p.rt}</span></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1 max-w-[220px]">{p.lomba.slice(0,3).map(l=><span key={l} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border shadow-sm">{l}</span>)}</div></td><td className="px-4 py-3"><div className="text-[11px]">{p.waktu}</div></td><td className="px-4 py-3 text-center"><span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✅ TERDAFTAR</span></td></tr>))}</tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
   const saveFunding = async () => {
     if(!newFunding.sumber||!newFunding.jumlah){ alert('Lengkapi'); return; }
     const nf:any = { id:`f-${Date.now()}`, sumber:newFunding.sumber, jumlah:Number(newFunding.jumlah), kategori:newFunding.kategori, status:'confirmed', metode:newFunding.metode };
@@ -643,20 +694,30 @@ export default function App() {
           <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-5 gap-3 border-b border-white/10">
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Cash</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(cashEntries.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{cashEntries.length} transaksi cash</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donatur</div><div className="text-[18px] font-black text-[#C1272D]">{donaturEntries.length}</div><div className="text-[9px] text-zinc-500">Total donatur</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm relative overflow-hidden min-h-[78px]">
-              <div className="flex items-center justify-between mb-1">
+            <div className="bg-white rounded-xl p-3 shadow-sm min-h-[104px] flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <div className="text-[10px] font-bold text-zinc-500">Sponsor</div>
-                <div className="text-[10px] text-zinc-400">{sponsorSlideIdx+1}/{Math.max(1,sponsorEntries.length)}</div>
+                <div className="text-[10px] text-zinc-400">{Math.min(sponsorSlideIdx+1, Math.max(1,sponsorEntries.length))}/{Math.max(1,sponsorEntries.length)}</div>
               </div>
-              {sponsorEntries.length>0 ? sponsorEntries.map((s:any,idx:number)=>(
-                <div key={s.id} className={`absolute inset-x-3 top-7 transition-opacity duration-500 ${idx===sponsorSlideIdx?'opacity-100':'opacity-0 pointer-events-none'}`}>
+              {sponsorEntries.length > 0 ? (() => {
+                const current = sponsorEntries[sponsorSlideIdx % sponsorEntries.length];
+                return (
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-zinc-100 overflow-hidden grid place-items-center text-[18px] shrink-0">{typeof s.logo === 'string' && (s.logo.startsWith('/') || s.logo.startsWith('http')) ? <img src={s.logo} alt={s.nama} className="w-full h-full object-cover" /> : <span>{s.logo||''}</span>}</div>
-                    <div className="min-w-0 flex-1"><div className="font-black text-[12px] text-purple-700 truncate">{s.nama||s.sumber}</div><div className="text-[10px] text-zinc-500 truncate">{s.deskripsi||s.sumber||'Sponsor'}</div></div>
+                    <div className="h-12 w-12 rounded-lg bg-zinc-100 overflow-hidden grid place-items-center text-[18px] shrink-0">
+                      {typeof current.logo === 'string' && (current.logo.startsWith('/') || current.logo.startsWith('http')) ? (
+                        <img src={current.logo} alt={current.nama} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{current.logo || '🏪'}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-black text-[13px] text-purple-700 truncate">{current.nama || current.sumber}</div>
+                      <div className="text-[10px] text-zinc-500 leading-4 line-clamp-2">{current.deskripsi || current.sumber || 'Sponsor'}</div>
+                    </div>
                   </div>
-                </div>
-              )) : <div className="text-[11px] text-zinc-400">Belum ada sponsor</div>}
-              <div className="absolute bottom-2 right-3 flex gap-1">{sponsorEntries.map((_:any,idx:number)=><button key={idx} onClick={()=>setSponsorSlideIdx(idx)} className={`h-1.5 rounded-full transition-all ${idx===sponsorSlideIdx?'w-4 bg-purple-500':'w-1.5 bg-zinc-300'}`}></button>)}</div>
+                );
+              })() : <div className="text-[11px] text-zinc-400">Belum ada sponsor</div>}
+              <div className="mt-2 flex justify-end gap-1">{sponsorEntries.map((_:any,idx:number)=><button key={idx} onClick={()=>setSponsorSlideIdx(idx)} className={`h-1.5 rounded-full transition-all ${idx===sponsorSlideIdx?'w-4 bg-purple-500':'w-1.5 bg-zinc-300'}`}></button>)}</div>
             </div>
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(donasiEntries.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{donasiEntries.length} transaksi donasi</div></div>
             <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(pengeluaranEntries.reduce((s:any,p:any)=>s+Number(p.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{pengeluaranEntries.length} transaksi</div></div>
@@ -684,6 +745,63 @@ export default function App() {
           <div className="p-3 bg-black/40 border-t border-white/10 flex flex-wrap justify-between gap-2 text-[10px] text-white/50">
             <span>📊 Sinkron langsung: Iuran + Donatur + Sponsor + Donasi + Pengeluaran → Total Dana Hero & Admin Panitia</span>
             <button onClick={downloadPengeluaran} className="h-6 px-3 rounded-full bg-orange-600 text-white text-[9px] font-bold">📥 Unduh Rincian Pengeluaran CSV</button>
+          </div>
+        </div>
+      </section>
+
+      {renderPesertaRealtime()}
+
+      <section id="talenta" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-white rounded-2xl border-2 border-amber-100 shadow-sm p-5 md:p-6">
+          <div className="text-center">
+            <h3 className="font-black text-[18px]">TALENTA ANAK MALAM PUNCAK HUT RI KE-81</h3>
+            <p className="text-[11px] text-zinc-500">Malam Puncak — 22 Agustus 2026</p>
+            <div className="mt-3 flex justify-center gap-2">
+              <button onClick={downloadTalenta} className="h-8 px-4 rounded-full bg-blue-600 text-white text-[11px] font-bold">Download (CSV)</button>
+              <button onClick={()=>window.print()} className="h-8 px-4 rounded-full bg-zinc-800 text-white text-[11px] font-bold">Cetak / Save PDF</button>
+            </div>
+          </div>
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full text-[11px] min-w-[760px]">
+              <thead>
+                <tr className="bg-[#8B1A1E] text-white text-[10px] tracking-widest uppercase">
+                  <th className="text-left px-3 py-2.5">No</th>
+                  <th className="text-left px-3 py-2.5">Jenis Penampilan</th>
+                  <th className="text-left px-3 py-2.5">Nama Peserta</th>
+                  <th className="text-center px-3 py-2.5">Jumlah</th>
+                  <th className="text-center px-3 py-2.5">Durasi</th>
+                  <th className="text-left px-3 py-2.5">Penanggung Jawab</th>
+                  <th className="text-center px-3 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {talents.map(t=>(
+                  <tr key={t.id} className="border-b last:border-0">
+                    <td className="px-3 py-2.5 font-bold">{t.no}</td>
+                    <td className="px-3 py-2.5">{t.jenis}</td>
+                    <td className="px-3 py-2.5">{t.peserta}</td>
+                    <td className="px-3 py-2.5 text-center">{t.jumlah||'___'}</td>
+                    <td className="px-3 py-2.5 text-center">{t.durasi||'___'} Menit</td>
+                    <td className="px-3 py-2.5">{t.penanggungJawab||'__________________'}</td>
+                    <td className="px-3 py-2.5 text-center"><input type="checkbox" checked={t.status} readOnly className="h-4 w-4" /></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-[#FFF7ED]">
+                  <td colSpan={7} className="px-3 py-3 font-black text-[#C1272D]">
+                    Total Peserta Saat Ini:<br/>
+                    Tari Zapin : ± ___ orang (silakan lengkapi jumlah "dkk")<br/>
+                    Tari Gugur Gunung : 5 orang<br/>
+                    Piano : 1 orang<br/>
+                    Tarian Persembahan : 5 orang<br/>
+                    Tarian Tor Tor : 14 orang<br/>
+                    <br/>
+                    Total sementara (tanpa menghitung "dkk" Tari Zapin): 25 peserta + peserta "dkk" Tari Zapin.
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       </section>
@@ -955,6 +1073,25 @@ alter table keuangan enable row level security; create policy "public_all" on ke
                     )}
                   </div>
                 )}
+                {adminTab==='talenta' && (
+                  <div className="space-y-4">
+                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]"> Tambah Talenta Malam Puncak 22 Agustus 2026</h4><p className="text-[11px] text-zinc-500 mt-1">Input/edit data peserta talenta anak untuk malam puncak</p><div className="mt-3 grid md:grid-cols-2 gap-2">
+                      <input value={newTalent.jenis} onChange={e=>setNewTalent({...newTalent, jenis:e.target.value})} placeholder="Jenis Penampilan" className="h-10 px-3 rounded-xl border text-[12px]" />
+                      <input value={newTalent.peserta} onChange={e=>setNewTalent({...newTalent, peserta:e.target.value})} placeholder="Nama Peserta (pisahkan koma)" className="h-10 px-3 rounded-xl border text-[12px]" />
+                      <input type="number" value={newTalent.jumlah} onChange={e=>setNewTalent({...newTalent, jumlah:e.target.value})} placeholder="Jumlah Peserta" className="h-10 px-3 rounded-xl border text-[12px]" />
+                      <input value={newTalent.durasi} onChange={e=>setNewTalent({...newTalent, durasi:e.target.value})} placeholder="Durasi (menit)" className="h-10 px-3 rounded-xl border text-[12px]" />
+                      <input value={newTalent.penanggungJawab} onChange={e=>setNewTalent({...newTalent, penanggungJawab:e.target.value})} placeholder="Penanggung Jawab" className="h-10 px-3 rounded-xl border text-[12px] md:col-span-2" />
+                    </div>
+                    <div className="mt-2 flex items-center gap-2"><input type="checkbox" checked={newTalent.status} onChange={e=>setNewTalent({...newTalent, status:e.target.checked})} /><span className="text-[12px]">Status Siap</span></div>
+                    <button onClick={()=>{
+                      if(!newTalent.jenis||!newTalent.peserta) return alert('Lengkapi jenis & nama peserta');
+                      const nt:any = { id:`tal-${Date.now()}`, no: talents.length+1, jenis:newTalent.jenis, peserta:newTalent.peserta, jumlah:newTalent.jumlah||'', durasi:newTalent.durasi||'', penanggungJawab:newTalent.penanggungJawab||'', status:newTalent.status };
+                      setTalents(prev=>[...prev, nt]);
+                      setNewTalent({ id:'', no:0, jenis:'', peserta:'', jumlah:'', durasi:'', penanggungJawab:'', status:false });
+                    }} className="h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">+ Tambah Talenta</button>
+                    <div className="mt-4"><h4 className="font-black text-[13px]">Daftar Talenta — {talents.length} item</h4><div className="mt-3 grid gap-2 max-h-[400px] overflow-y-auto">{talents.map(t=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.no}. {t.jenis}</div><div className="text-[9px] text-white/50">{t.peserta} • {t.jumlah||'___'} • {t.durasi||'___'} menit • {t.penanggungJawab||'___'}</div></div>))}</div></div>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -1008,7 +1145,7 @@ alter table keuangan enable row level security; create policy "public_all" on ke
             </div>
             <div className="mt-4 bg-[#FFF7ED] border rounded-xl p-4">
               <div className="font-bold text-[12px] mb-2">Deskripsi & Tata Cara</div>
-              <div className="text-[12px] text-zinc-700 leading-6 whitespace-pre-line">{showLomba.deskripsi.replace(/\. /g, '.\n')}</div>
+              <div className="text-[12px] text-zinc-700 leading-6 whitespace-pre-line">{formatLombaDetail(showLomba.deskripsi)}</div>
             </div>
             <div className="mt-5 flex gap-2"><button onClick={()=>setShowLomba(null)} className="flex-1 h-10 rounded-full bg-zinc-100 border font-bold text-[12px]">Tutup</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:[...f.lomba,showLomba.title] })); setShowLomba(null); setShowRegister(true); }} className="flex-1 h-10 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">📝 Daftar</button></div>
           </div>
