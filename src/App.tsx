@@ -1,1137 +1,827 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { supabase, getSupabaseAdmin, setSupabaseConfig, getSupabaseConfig } from './utils/supabaseClient';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import HeroSection from './components/HeroSection';
+import LombaSection from './components/LombaSection';
+import AdminPage from './components/AdminPage';
 import GalleryPage from './components/GalleryPage';
+import {
+  lombaList,
+  panitiaList,
+  budgetRows,
+  budgetDetails,
+  formatRupiah,
+  rundownPagi,
+  rundownMalam,
+  type InventoryItem,
+  type TalentaItem,
+  type SponsorItem,
+  initialInventoryList,
+  initialTalentaList,
+  initialSponsorList,
+} from './data/siteData';
+import { supabase } from './utils/supabaseClient';
+import qrisImage from './assets/qris-aulia.png';
 
-interface Participant { id: string; name: string; rt: string; hp: string; lomba: string[]; catatan: string; waktu: string; createdAt: number; }
-interface Donor { id: string; name: string; alamat: string; jumlah: number; pesan: string; waktu: string; isAnon: boolean; metode?: string; jenis?: string; }
-interface Funding { id: string; sumber: string; jumlah: number; kategori: 'iuran'|'donasi'|'sponsor'|'donatur'|'kas'|'donasi_cash'|'donasi_online'; status: 'confirmed'|'pending'; metode: 'cash'|'transfer'|'qris'; jenis?: string; }
-interface LombaItem { id: string; title: string; kategori: 'anak'|'ibu'|'bapak'|'remaja'|'keluarga'|'umum'; emoji: string; waktu: string; hadiah: string; peserta: string; deskripsi: string; }
-interface GalleryItem { id: string; type: 'image'|'video'; src: string; title: string; credit?: string; thumb?: string; }
-interface InventoryItem { id: string; nama: string; kategori: 'peralatan'|'aksesoris'|'dekorasi'|'sound'|'lainnya'; jumlah: number; kondisi: 'baik'|'rusak'|'hilang'; lokasi: string; penanggungJawab: string; }
-interface CommentItem { id: string; galleryId: string; nama: string; pesan: string; waktu: string; }
-interface ArchiveItem { tahun: number; tema: string; peserta: number; dana: number; lomba: number; deskripsi: string; }
-interface TalentItem { id: string; no: number; jenis: string; peserta: string; jumlah: number | ''; durasi: string; penanggungJawab: string; status: boolean; }
-
-const LOMBA_DATA: LombaItem[] = [
-  { id: 'kerupuk', title: 'Lomba Makan Kerupuk', kategori: 'anak', emoji: '🍘', waktu: '08:00 WIB', hadiah: 'Menarik', peserta: 'Anak-anak', deskripsi: 'Peserta: Anak-anak. Peralatan: Kerupuk, Tali, Tiang gantungan. Cara Bermain: Kerupuk digantung menggunakan tali. Peserta berdiri tanpa menyentuh kerupuk menggunakan tangan. Tangan harus berada di belakang badan. Pemenang adalah peserta yang paling cepat menghabiskan kerupuk.' },
-  { id: 'futsal', title: 'Futsal Mini', kategori: 'remaja', emoji: '⚽', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Tim 5 pemain', deskripsi: 'Peserta: Tim 5 pemain. Peraturan: Durasi pertandingan 2 x 10 menit. Sistem gugur. Tidak diperbolehkan bermain kasar. Keputusan wasit bersifat mutlak. Pemenang ditentukan dari jumlah gol terbanyak.' },
-  { id: 'kelereng', title: 'Lomba Balap Kelereng', kategori: 'anak', emoji: '🔵', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak', deskripsi: 'Peserta: Anak-anak. Peralatan: Sendok, Kelereng. Cara Bermain: Kelereng diletakkan di atas sendok. Sendok digigit menggunakan mulut. Tidak boleh dipegang tangan. Bila kelereng jatuh, peserta kembali ke titik awal. Peserta tercepat menjadi pemenang.' },
-  { id: 'tambang', title: 'Lomba Tarik Tambang', kategori: 'bapak', emoji: '💪', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Dua tim', deskripsi: 'Peserta: Dua tim. Peraturan: Setiap tim memiliki jumlah peserta yang sama. Tim menarik tali hingga tanda tengah melewati garis kemenangan. Best of 3.' },
-  { id: 'tumpeng', title: 'Lomba Hias Tumpeng', kategori: 'ibu', emoji: '🍛', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Waktu maksimal 60 menit. Penilaian: Kreativitas, Kerapihan, Kebersihan, Keindahan penyajian, Kesesuaian tema Kemerdekaan, Kekompakan tim, Cita rasa (opsional apabila ada dewan juri). Peserta diperbolehkan menambah dekorasi maupun bahan makanan di luar anggaran pribadi selama tidak melanggar tema lomba.' },
-  { id: 'daster', title: 'Lomba Fashion Week Daster', kategori: 'ibu', emoji: '👗', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Cara Bermain: Mengenakan daster dengan gaya sekreatif mungkin. Berjalan di catwalk. Menampilkan pose terbaik. Boleh membawa properti sederhana. Penilaian: Kepercayaan diri, Kreativitas, Ekspresi, Penampilan, Interaksi dengan penonton.' },
-  { id: 'sambung', title: 'Salah Sambung', kategori: 'remaja', emoji: '🗣️', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Bebas', deskripsi: 'Peserta: Bebas. Cara Bermain: MC menyebutkan awal kalimat. Peserta wajib melanjutkan dengan cepat. Jawaban salah atau terlalu lama dianggap gugur. Sistem eliminasi.' },
-  { id: 'joget-bapak', title: 'Lomba Joget Kursi Bapak', kategori: 'bapak', emoji: '💃', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Bapak-bapak', deskripsi: 'Peserta: Bapak-bapak. Cara Bermain: Musik diputar. Peserta berjalan mengelilingi kursi. Saat musik berhenti peserta segera duduk. Peserta yang tidak mendapatkan kursi gugur. Kursi dikurangi setiap ronde.' },
-  { id: 'penguin-anak', title: 'Lomba Estafet Penguin Anak', kategori: 'anak', emoji: '🐧', waktu: '08:30 WIB', hadiah: 'Menarik', peserta: 'Anak-anak berpasangan', deskripsi: 'Peserta: Anak-anak berpasangan. Cara Bermain: Bola dijepit di antara kedua lutut. Berjalan seperti penguin menuju garis finis. Bola tidak boleh dipegang tangan. Bila bola jatuh kembali ke titik sebelumnya. Tim tercepat menang.' },
-  { id: 'penguin-remaja', title: 'Lomba Estafet Penguin Remaja', kategori: 'remaja', emoji: '🐧', waktu: '10:00 WIB', hadiah: 'Menarik', peserta: 'Remaja', deskripsi: 'Peserta: Remaja. Cara Bermain: Sama seperti Estafet Penguin Anak, namun jarak lintasan lebih panjang dan dilakukan secara estafet antar anggota tim.' },
-  { id: 'tepung', title: 'Lomba Estafet Tepung', kategori: 'bapak', emoji: '🌾', waktu: '11:00 WIB', hadiah: 'Menarik', peserta: 'Tim', deskripsi: 'Peserta: Tim. Peralatan: Tepung, Gelas, Baskom. Cara Bermain: Peserta berbaris ke belakang. Tepung dipindahkan dari peserta pertama ke peserta terakhir melalui atas kepala. Tidak boleh melihat ke belakang. Tepung yang berhasil dikumpulkan paling banyak menjadi pemenang.' },
-  { id: 'joget-ibu', title: 'Lomba Joget Kursi Ibu', kategori: 'ibu', emoji: '🪑', waktu: '13:00 WIB', hadiah: 'Menarik', peserta: 'Ibu-ibu', deskripsi: 'Peserta: Ibu-ibu. Cara Bermain: Sama seperti Joget Kursi Bapak. Penilaian berdasarkan ketahanan hingga babak final.' },
-  { id: 'makeup', title: 'Lomba Make Up Buta', kategori: 'keluarga', emoji: '💄', waktu: '15:00 WIB', hadiah: 'Menarik', peserta: 'Berpasangan', deskripsi: 'Peserta: Berpasangan. Peralatan: Alat make up. Cara Bermain: Salah satu peserta ditutup matanya. Peserta tersebut merias wajah pasangannya. Tidak boleh membuka penutup mata. Waktu maksimal 10 menit.' },
-];
-
-const defaultParticipants: Participant[] = [
-  { id: 'MWR81-0013', name: 'Rizki', rt: 'RT 02/blok mawar 102', hp: '08981234470', lomba: ['Lomba Joget Kursi Bapak'], catatan: 'Live join', waktu: '29/7/2026, 13:13:08', createdAt: Date.now()-60000 },
-  { id: 'MWR81-0012', name: 'Indah', rt: 'RT/ mawar 102', hp: '08211234882', lomba: ['Lomba Joget Kursi Ibu','Lomba Estafet Tepung','Lomba Hias Tumpeng'], catatan: 'Live join', waktu: '29/7/2026, 13:12:00', createdAt: Date.now()-120000 },
-  { id: 'MWR81-0011', name: 'Mam lala', rt: 'Mawar 83', hp: '08781234155', lomba: ['Lomba Joget Kursi Ibu'], catatan: 'Live join', waktu: '29/7/2026, 12:56:08', createdAt: Date.now()-300000 },
-  { id: 'MWR81-0002', name: 'Ameera Hanania R', rt: 'RT 002 / Blok Mawar', hp: '081299176369', lomba: ['Fashion Week Daster','Estafet Penguin Anak'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()-800000 },
-  { id: 'MWR81-0001', name: 'Fatimah Az Zahra', rt: 'RT 002 / Blok Mawar', hp: '081234567890', lomba: ['Makan Kerupuk','Balap Kelereng'], catatan: 'Live join', waktu: '29/7/2026, 20:04:03', createdAt: Date.now()-900000 },
-];
-
-const defaultFunding: Funding[] = [
-  { id: 'f1', sumber: 'Iuran Warga 50K/KK x 200 KK', jumlah: 10000000, kategori: 'iuran', status: 'confirmed', metode: 'cash', jenis: 'iuran warga' },
-  { id: 'f2', sumber: 'Donasi Warga via DANA/SeaBank', jumlah: 5000000, kategori: 'donasi_online', status: 'confirmed', metode: 'transfer', jenis: 'donasi online' },
-  { id: 'f3', sumber: 'Sponsor UMKM Lokal', jumlah: 3000000, kategori: 'sponsor', status: 'confirmed', metode: 'transfer', jenis: 'sponsor' },
-  { id: 'f4', sumber: 'Kas RT 002', jumlah: 1000000, kategori: 'kas', status: 'confirmed', metode: 'cash', jenis: 'kas' },
-  { id: 'f5', sumber: 'Donasi Cash Warga', jumlah: 2000000, kategori: 'donasi_cash', status: 'confirmed', metode: 'cash', jenis: 'donasi cash' },
-  { id: 'f6', sumber: 'Donatur Hamba Allah', jumlah: 1500000, kategori: 'donatur', status: 'confirmed', metode: 'qris', jenis: 'donatur' },
-];
-
-const PANITIA_USERS = [
-  { username: 'admin', password: 'mawar81', nama: 'Administrator', role: 'admin' },
-  { username: 'eka', password: 'pj2026!', nama: 'Eka Rista Y (PJ)', role: 'pj' },
-  { username: 'bayu', password: 'ketua2026!', nama: 'Bayu S.Permana (Ketua)', role: 'ketua' },
-  { username: 'aulia', password: 'bendahara2026!', nama: 'Aulia Komari (Bendahara)', role: 'bendahara' },
-  { username: 'sugiono', password: 'wakil2026!', nama: 'Sugiono (Wakil)', role: 'wakil' },
-  { username: 'lani', password: 'sekretaris2026!', nama: 'Lani (Sekretaris)', role: 'sekretaris' },
-  { username: 'puput', password: 'bendahara2!', nama: 'Puput (Bendahara 2)', role: 'bendahara2' },
-];
-const OWNER_USERS = [
-  { username: 'owner', password: 'owner81', nama: 'Owner', role: 'owner' },
-  { username: 'superadmin', password: 'super2026!', nama: 'Super Admin', role: 'owner' },
-];
-
-const PANITIA_DATA = [
-  { jabatan: 'Ketua Pembina', nama: 'IPTU Saharudin' },
-  { jabatan: 'Ketua Penasehat', nama: 'Syamsul Piliano' },
-  { jabatan: 'Penanggung Jawab', nama: 'Eka Rista Y (0821-7129-9984)' },
-  { jabatan: 'Ketua Panitia', nama: 'Bayu S.Permana (0812-8839-5550)' },
-  { jabatan: 'Wakil Ketua', nama: 'Sugiono (0831-8395-0205)' },
-  { jabatan: 'Sekretaris', nama: 'Lani (0813-7116-2792)' },
-  { jabatan: 'Bendahara I', nama: 'Aulia Komari (0812-3456-7892)' },
-  { jabatan: 'Bendahara II', nama: 'Puput (0831-8330-3884)' },
-];
-
-const ANGGARAN_DATA = [
-  { komponen: 'Total Anggaran — Pesta Rakyat (17 Agt)', jumlah: 10000000, detail: 'pesta-rakyat' },
-  { komponen: 'Total Anggaran — Malam Puncak (22 Agt Malam)', jumlah: 7000000, detail: 'malam-puncak' },
-  { komponen: 'TOTAL KEBUTUHAN ANGGARAN', jumlah: 17000000, total: true },
-  { komponen: 'Total Dana Masuk (Pendanaan)', jumlah: 19000000, masuk: true, detail: 'dana-masuk' },
-  { komponen: 'SELISIH (Dana Masuk - Kebutuhan)', jumlah: 2000000, selisih: true },
-];
-
-const ANGGARAN_DETAIL: any = {
-  'pesta-rakyat': { title: 'Rincian Pesta Rakyat 17 Agt (10jt)', items: [{ nama: 'Hadiah Lomba', qty: '13 kategori', harga: 5000000 }, { nama: 'Konsumsi', qty: '200 pax', harga: 3000000 }]},
-  'malam-puncak': { title: 'Rincian Malam Puncak (7jt)', items: [{ nama: 'Panggung', qty: '1 set', harga: 3000000 }, { nama: 'Hadiah Utama', qty: '1 paket', harga: 2500000 }]},
-  'dana-masuk': { title: 'Rincian Dana Masuk (19jt)', items: [{ nama: 'Iuran Warga', qty: '200', harga: 10000000 }, { nama: 'Donasi', qty: 'realtime', harga: 5000000 }]},
-};
-
-const RUNDOWN = [
-  { jam: '06:00', kegiatan: '📋 Persiapan Lokasi & Registrasi Peserta (Panitia & Peserta)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '07:00', kegiatan: '🇮🇩 Upacara Bendera & Pembukaan Resmi (Seluruh Warga)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '07:00', kegiatan: '🎤 Sambutan Ketua RT & Ketua Panitia (Undangan)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '08:30', kegiatan: '👶 Lomba Anak-anak (Makan Kerupuk, Balap Kelereng, Estafet Penguin) (Usia 5-15 tahun)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '10:00', kegiatan: '🧑 Lomba Remaja (Futsal Mini, Salah Sambung, Estafet Penguin) (Usia 13-17 tahun)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '11:00', kegiatan: '🪢 Lomba Bapak-bapak (Tarik Tambang, Joget Kursi, Estafet Tepung) (Bapak-bapak)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '12:00', kegiatan: '🍛 Istirahat, Sholat & Makan Siang (Seluruh Warga)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '13:00', kegiatan: '👗 Lomba Ibu-ibu (Hias Tumpeng, Fashion Daster, Joget Kursi) (Ibu-ibu)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '15:00', kegiatan: '👨‍👩‍👧 Lomba Keluarga (Make Up Buta) (Pasangan)', group: 'PAGI & PERLOMBAAN' },
-  { jam: '16:00', kegiatan: '✅ Penutupan Perlombaan & Persiapan Malam Puncak', group: 'PAGI & PERLOMBAAN' },
-  { jam: '19:00', kegiatan: '🎊 Pembukaan Malam Puncak (MC & Panitia)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '19:30', kegiatan: '🎶 Hiburan Rakyat & Pentas Seni (Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '20:00', kegiatan: '🏆 Pengumuman Pemenang & Penyerahan Hadiah (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '20:30', kegiatan: '🍱 Penilaian Hias Tumpeng (Peserta Ibu-ibu)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '21:00', kegiatan: '🎁 Doorprize (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '21:30', kegiatan: '🙏 Sambutan Penutup & Doa Bersama (Ketua RT)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-  { jam: '22:00', kegiatan: '🏁 Penutupan Acara & Ramah Tamah (Seluruh Warga)', group: 'MALAM PUNCAK (22 AGUSTUS 2026)' },
-];
-
-const DEFAULT_GALLERY: any[] = [
-  { id: 'g1', type: 'image', src: '/images/20260726_091521.jpg', title: 'Panjat Pinang — Lomba Tradisional 17 Agustus', credit: 'Dokumentasi Warga Blok Mawar' },
-  { id: 'g2', type: 'image', src: 'https://images.pexels.com/photos/33807994/pexels-photo-33807994.jpeg?auto=compress&cs=tinysrgb&w=800', title: 'Perayaan Kemerdekaan — Kirab Bendera', credit: 'Rakhmat Suwandi / Pexels' },
-  { id: 'g3', type: 'image', src: 'https://images.pexels.com/photos/35161342/pexels-photo-35161342.jpeg?auto=compress&cs=tinysrgb&w=800', title: 'Upacara Bendera Merah Putih', credit: 'Tommy Kurniawan / Pexels' },
-  { id: 'v1', type: 'video', src: 'https://videos.pexels.com/video-files/34373272/14563035_1920_1080_30fps.mp4', title: 'Karnaval 17 Agustus — Parade Desa', credit: 'just a hobby / Pexels' },
-];
-
-const DEFAULT_INVENTORY: InventoryItem[] = [
-  { id: 'inv1', nama: 'Tenda Terpal 3x3', kategori: 'peralatan', jumlah: 5, kondisi: 'baik', lokasi: 'Gudang RT', penanggungJawab: 'Sugiono' },
-  { id: 'inv2', nama: 'Sound System + Mic', kategori: 'sound', jumlah: 1, kondisi: 'baik', lokasi: 'Rumah Ketua', penanggungJawab: 'Bayu' },
-  { id: 'inv3', nama: 'Bendera Merah Putih Besar', kategori: 'dekorasi', jumlah: 10, kondisi: 'baik', lokasi: 'Gudang', penanggungJawab: 'Lani' },
-  { id: 'inv4', nama: 'Kursi Plastik', kategori: 'peralatan', jumlah: 50, kondisi: 'baik', lokasi: 'Balai Warga', penanggungJawab: 'Eka' },
-  { id: 'inv5', nama: 'Kostum Daster Fashion Show', kategori: 'aksesoris', jumlah: 15, kondisi: 'baik', lokasi: 'Rumah Aulia', penanggungJawab: 'Aulia' },
-];
-
-const DEFAULT_TALENTS: TalentItem[] = [
-  { id: 'tal1', no: 1, jenis: 'Tari Zapin', peserta: 'Whesni, Zahra, Lexa, Lexi, Syifa, dkk', jumlah: '', durasi: '', penanggungJawab: '', status: false },
-  { id: 'tal2', no: 2, jenis: 'Tari Gugur Gunung', peserta: 'Boru, Amora, Attaya, Namira, Raya', jumlah: 5, durasi: '', penanggungJawab: '', status: false },
-  { id: 'tal3', no: 3, jenis: 'Piano (Instrumental)', peserta: 'Ameera', jumlah: 1, durasi: '', penanggungJawab: '', status: false },
-  { id: 'tal4', no: 4, jenis: 'Tarian Wajib – Persembahan', peserta: 'Alifa, Hani, Lara, Acen, Sari', jumlah: 5, durasi: '', penanggungJawab: '', status: false },
-  { id: 'tal5', no: 5, jenis: 'Tarian Wajib – Tor Tor', peserta: 'Raisa, Shira, Razka, Almera, Shakila, Nabila, Adiibah, Arumi, Mikachan, Hana, Khalisa, Nouren, Inaya, Tisha', jumlah: 14, durasi: '', penanggungJawab: '', status: false },
-];
-
-function formatRupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
-function maskHp(hp: string) { if (!hp || hp.length < 7) return hp; return hp.slice(0,4)+'****'+hp.slice(-3); }
-function formatLombaDetail(desc: string) {
-  return desc
-    .replace(/Peserta:/g, 'Peserta\n')
-    .replace(/Peralatan:/g, '\n\nPeralatan\n')
-    .replace(/Cara Bermain:/g, '\n\nCara Bermain\n')
-    .replace(/Peraturan:/g, '\n\nPeraturan\n')
-    .replace(/Penilaian:/g, '\n\nPenilaian\n')
-    .replace(/Waktu maksimal 60 menit\./g, 'Waktu\nMaksimal 60 menit.\n')
-    .replace(/Pemenang ditentukan/g, '\n\nPemenang ditentukan')
-    .replace(/Peserta diperbolehkan/g, '\n\nPeserta diperbolehkan')
-    .replace(/\. /g, '.\n')
-    .trim();
+// ================== SHARED TYPES ==================
+export interface Participant {
+  id: string;
+  name: string;
+  rt: string;
+  hp: string;
+  lomba: string[];
+  catatan: string;
+  waktu: string;
+  dbId?: number;
+}
+export interface KeuanganEntry {
+  id?: number;
+  nama: string;
+  jenis: string; // 'iuran' | 'donasi' | 'cash' | 'sponsor' | 'donatur' | 'pengeluaran'
+  jumlah: number;
+  keterangan: string;
+  created_at?: string;
+}
+export interface DonorEntry {
+  id: string;
+  name: string;
+  alamat: string;
+  jumlah: number;
+  pesan: string;
+  waktu: string;
+  isAnon: boolean;
+  jenis: string;
+}
+export interface GalleryComment {
+  id: string;
+  itemId: number;
+  nama: string;
+  comment: string;
+  waktu: string;
+}
+export interface UserPhoto {
+  id: string;
+  url: string;
+  title: string;
+  uploader: string;
+  waktu: string;
 }
 
+// 13 EXACT DEFAULT PARTICIPANTS FROM THE USER'S PROMPT
+const defaultParticipants: Participant[] = [
+  {
+    id: 'MWR81-0013',
+    name: 'Rizki',
+    rt: 'RT 02/blok mawar 102',
+    hp: '0898****470',
+    lomba: ['Lomba Joget Kursi Bapak'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 13.13.08',
+  },
+  {
+    id: 'MWR81-0012',
+    name: 'Indah',
+    rt: 'RT/ mawar 102',
+    hp: '0821****882',
+    lomba: ['Lomba Joget Kursi Ibu', 'Lomba Estafet Tepung', 'Lomba Hias Tumpeng'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 13.12.00',
+  },
+  {
+    id: 'MWR81-0011',
+    name: 'Mam lala',
+    rt: 'Mawar 83',
+    hp: '0878****155',
+    lomba: ['Lomba Joget Kursi Ibu'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 12.56.08',
+  },
+  {
+    id: 'MWR81-0010',
+    name: 'nouren',
+    rt: 'Mawar 127',
+    hp: '0813****648',
+    lomba: ['Lomba Makan Kerupuk', 'Lomba Estafet Penguin Anak', 'Lomba Balap Kelereng'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 12.24.58',
+  },
+  {
+    id: 'MWR81-0009',
+    name: 'Dewi, indah, Evi',
+    rt: 'RT002/Mawar83',
+    hp: '0878-7441-9155',
+    lomba: ['Lomba Estafet Tepung'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 09.50.29',
+  },
+  {
+    id: 'MWR81-0008',
+    name: 'Evi,Dewi,indah,Andi Fitri,Cece',
+    rt: '002/ Mawar 83',
+    hp: '0878-7441-9155',
+    lomba: ['Lomba Hias Tumpeng'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 09.47.32',
+  },
+  {
+    id: 'MWR81-0007',
+    name: 'lifi',
+    rt: 'Mawar 127',
+    hp: '0823****207',
+    lomba: ['Lomba Balap Kelereng', 'Lomba Estafet Penguin Anak'],
+    catatan: 'Terdaftar',
+    waktu: '28/7/2026, 21.39.49',
+  },
+  {
+    id: 'MWR81-0006',
+    name: 'alif',
+    rt: 'Mawar 127',
+    hp: '0823****207',
+    lomba: ['Salah Sambung', 'Lomba Balap Kelereng'],
+    catatan: 'Terdaftar',
+    waktu: '28/7/2026, 21.34.56',
+  },
+  {
+    id: 'MWR81-0005',
+    name: 'lifi',
+    rt: 'Mawar 127',
+    hp: '0823****207',
+    lomba: ['Lomba Balap Kelereng', 'Lomba Estafet Penguin Anak'],
+    catatan: 'Terdaftar',
+    waktu: '28/7/2026, 21.33.00',
+  },
+  {
+    id: 'MWR81-0004',
+    name: 'Lala',
+    rt: 'Mawar 83',
+    hp: '0878****155',
+    lomba: ['Lomba Balap Kelereng', 'Salah Sambung', 'Lomba Estafet Penguin Remaja'],
+    catatan: 'Terdaftar',
+    waktu: '28/7/2026, 20.57.57',
+  },
+  {
+    id: 'MWR81-0003',
+    name: 'Abiyu Rexxa',
+    rt: 'RT 002/58 Blok Mawar',
+    hp: '0812****550',
+    lomba: ['Lomba Makan Kerupuk'],
+    catatan: 'Terdaftar',
+    waktu: '28/7/2026, 16.26.05',
+  },
+  {
+    id: 'MWR81-0002',
+    name: 'Ameera Hanania R',
+    rt: 'RT 002 / Blok Mawar',
+    hp: '0812****891',
+    lomba: ['Fashion Week Daster', 'Estafet Penguin Anak'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 20.04.03',
+  },
+  {
+    id: 'MWR81-0001',
+    name: 'Fatimah Az Zahra',
+    rt: 'RT 002 / Blok Mawar',
+    hp: '0812****890',
+    lomba: ['Makan Kerupuk', 'Balap Kelereng'],
+    catatan: 'Terdaftar',
+    waktu: '29/7/2026, 20.04.03',
+  },
+];
+
+export interface SharedData {
+  participants: Participant[];
+  keuanganList: KeuanganEntry[];
+  inventoryList: InventoryItem[];
+  talentaList: TalentaItem[];
+  sponsorList: SponsorItem[];
+  totalDana: number;
+  isLive: boolean;
+  lastRefresh: Date;
+  newRowIds: Set<string>;
+  setIsLive: (v: boolean) => void;
+  fetchParticipants: () => Promise<void>;
+  fetchKeuangan: () => Promise<void>;
+  fetchInventory: () => Promise<void>;
+  fetchTalenta: () => Promise<void>;
+  setNewRowIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  setKeuanganList: React.Dispatch<React.SetStateAction<KeuanganEntry[]>>;
+  setInventoryList: React.Dispatch<React.SetStateAction<InventoryItem[]>>;
+  setTalentaList: React.Dispatch<React.SetStateAction<TalentaItem[]>>;
+  setTotalDana: React.Dispatch<React.SetStateAction<number>>;
+  setLastRefresh: React.Dispatch<React.SetStateAction<Date>>;
+}
+
+// Kategorikan satu entri keuangan ke kolom tampilan
+export function categorizeKeuangan(k: KeuanganEntry): 'cash' | 'donatur' | 'sponsor' | 'donasi' | 'pengeluaran' | 'transfer' {
+  const j = (k.jenis || '').toLowerCase();
+  const ket = (k.keterangan || '').toLowerCase();
+  if (j.includes('pengeluaran') || (k.jumlah || 0) < 0) return 'pengeluaran';
+  if (ket.includes('transfer')) return 'transfer';
+  if (j.includes('sponsor')) return 'sponsor';
+  if (j.includes('donatur')) return 'donatur';
+  if (j.includes('iuran') || j.includes('cash')) return 'cash';
+  return 'donasi';
+}
+
+// ================== ROOT APP — SHARED STATE ==================
 export default function App() {
-  const [countdown, setCountdown] = useState({ hari: 18, jam: 13, menit: 38, detik: 51 });
-  useEffect(()=>{ const target=new Date('2026-08-17T06:00:00').getTime(); const t=setInterval(()=>{ const diff=target-Date.now(); if(diff<=0){ setCountdown({hari:0,jam:0,menit:0,detik:0}); return; } setCountdown({hari:Math.floor(diff/(1000*60*60*24)),jam:Math.floor((diff/(1000*60*60))%24),menit:Math.floor((diff/(1000*60))%60),detik:Math.floor((diff/1000)%60)}); },1000); return()=>clearInterval(t); },[]);
+  const [page, setPage] = useState<'main' | 'admin' | 'gallery' | 'inventory'>('main');
 
-  const [participants, setParticipants] = useState<Participant[]>(()=>{ try{ const s=localStorage.getItem('hutri-participants-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [donors, setDonors] = useState<Donor[]>(()=>{ try{ const s=localStorage.getItem('hutri-donors-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [funding, setFunding] = useState<Funding[]>(()=>{ try{ const s=localStorage.getItem('hutri-funding-mawar'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [transaksi, setTransaksi] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-transaksi'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [iuranRows, setIuranRows] = useState<any[]>([]);
-  const [donasiRowsRaw, setDonasiRowsRaw] = useState<any[]>([]);
-  const [donasiCashRows, setDonasiCashRows] = useState<any[]>([]);
-  const [donasiOnlineRows, setDonasiOnlineRows] = useState<any[]>([]);
-  const [sponsorRows, setSponsorRows] = useState<any[]>([]);
-  const [keuanganRowsRaw, setKeuanganRowsRaw] = useState<any[]>([]);
-  const [gallery, setGallery] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-gallery'); if(s) return JSON.parse(s); }catch{} return DEFAULT_GALLERY; });
-  const [inventory, setInventory] = useState<InventoryItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-inventory'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [comments, setComments] = useState<CommentItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-comments'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)) return p; } }catch{} return []; });
-  const [archive, setArchive] = useState<ArchiveItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-archive'); if(s) return JSON.parse(s); }catch{} return [
-    { tahun: 2024, tema: 'Semarak Kemerdekaan 79', peserta: 85, dana: 15000000, lomba: 10, deskripsi: 'Perayaan HUT RI ke-79 dengan lomba tradisional' },
-    { tahun: 2025, tema: 'Bersatu dalam Keberagaman', peserta: 120, dana: 17500000, lomba: 12, deskripsi: 'HUT RI ke-80 dimeriahkan Karnaval Budaya' },
-    { tahun: 2026, tema: 'Blok Mawar Bersatu — HUT RI ke-81', peserta: 13, dana: 19000000, lomba: 13, deskripsi: 'HUT RI ke-81 dengan 13 lomba dan total hadiah jutaan' },
-  ]; });
-  const [talents, setTalents] = useState<TalentItem[]>(()=>{ try{ const s=localStorage.getItem('hutri-talents'); if(s) return JSON.parse(s); }catch{} return DEFAULT_TALENTS; });
-  const [newTalent, setNewTalent] = useState<TalentItem>({ id:'', no: 0, jenis:'', peserta:'', jumlah:'', durasi:'', penanggungJawab:'', status:false });
+  // ===== SHARED STATE (single source of truth) =====
+  const [participants, setParticipants] = useState<Participant[]>(defaultParticipants);
+  const [keuanganList, setKeuanganList] = useState<KeuanganEntry[]>([]);
+  const [inventoryList, setInventoryList] = useState<InventoryItem[]>(initialInventoryList);
+  const [talentaList, setTalentaList] = useState<TalentaItem[]>(initialTalentaList);
+  const [sponsorList, setSponsorList] = useState<SponsorItem[]>(initialSponsorList);
+  const [totalDana, setTotalDana] = useState(0);
+  const [isLive, setIsLive] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [newRowIds, setNewRowIds] = useState<Set<string>>(new Set());
 
-  const [search, setSearch] = useState(''); const [filterLomba, setFilterLomba] = useState('Semua'); const [filterRT, setFilterRT] = useState('Semua'); const [filterKategori, setFilterKategori] = useState('Semua');
-  const [lastUpdate, setLastUpdate] = useState(new Date().toLocaleTimeString('id-ID')); const [live, setLive] = useState(true); const [highlightId, setHighlightId] = useState<string|null>(null);
-  const [showRegister, setShowRegister] = useState(false); const [showDetail, setShowDetail] = useState<string|null>(null); const [showLomba, setShowLomba] = useState<LombaItem|null>(null);
-  const [formData, setFormData] = useState({ name:'', rt:'', hp:'', lomba:[] as string[], catatan:'' });
-  const [donasiForm, setDonasiForm] = useState({ name:'', alamat:'', jumlah:'', pesan:'', isAnon:false });
-  const [showPanitiaLogin, setShowPanitiaLogin] = useState(false); const [loginUsername, setLoginUsername] = useState(''); const [loginPassword, setLoginPassword] = useState('');
-  const [isPanitia, setIsPanitia] = useState(()=>{ try{ return localStorage.getItem('isPanitia')==='true'; }catch{ return false; } });
-  const [isOwner, setIsOwner] = useState(()=>{ try{ return localStorage.getItem('isOwner')==='true'; }catch{ return false; } });
-  const [currentUser, setCurrentUser] = useState<any>(()=>{ try{ const s=localStorage.getItem('currentUser'); if(s) return JSON.parse(s); }catch{} return null; });
-  const [showWA, setShowWA] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<any>(DEFAULT_GALLERY.find((g:any)=>g.type==='video')||null);
-  const [adminTab, setAdminTab] = useState<'overview'|'peserta'|'keuangan'|'pengeluaran'|'donasi'|'gallery'|'supabase'|'inventory'|'talenta'>('overview');
-  const [supabaseUrlInput, setSupabaseUrlInput] = useState(getSupabaseConfig().url);
-  const [supabaseStatus, setSupabaseStatus] = useState<'idle'|'testing'|'ok'|'fail'>('idle');
-  const [editParticipant, setEditParticipant] = useState<Participant|null>(null);
-  const [newFunding, setNewFunding] = useState({ sumber:'', jumlah:'', kategori:'iuran' as any, metode:'cash' as any });
-  const [cashDonasi, setCashDonasi] = useState({ nama:'', jumlah:'', metode:'cash' as any });
-  const [galleryZoom, setGalleryZoom] = useState<any|null>(null);
-  const [galleryFilter, setGalleryFilter] = useState<'semua'|'foto'|'video'>('semua');
-  const [showGalleryPage, setShowGalleryPage] = useState(false);
-  const [showInventoryPage, setShowInventoryPage] = useState(false);
-  const [showArchivePage, setShowArchivePage] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [qrisCustom, setQrisCustom] = useState<string|null>(()=>{ try{ return localStorage.getItem('qris-custom-image'); }catch{ return null; } });
-  const [newInventory, setNewInventory] = useState({ nama:'', kategori:'peralatan' as any, jumlah:'', kondisi:'baik' as any, lokasi:'', penanggungJawab:'' });
-  const [commentForm, setCommentForm] = useState({ galleryId:'', nama:'', pesan:'' });
-  const [pengeluaran, setPengeluaran] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-pengeluaran'); if(s) return JSON.parse(s); }catch{} return [
-    { id:'OUT-001', nama:'Pembelian Hadiah Lomba', kategori:'hadiah', jumlah:5000000, metode:'transfer', penerima:'Toko Maju Jaya', waktu:new Date().toLocaleString('id-ID'), catatan:'Hadiah juara 1,2,3 semua lomba' },
-    { id:'OUT-002', nama:'Sewa Sound System', kategori:'jasa', jumlah:1500000, metode:'cash', penerima:'DJ音响 Rental', waktu:new Date().toLocaleString('id-ID'), catatan:'Sound + mic wireless 1 hari' },
-  ]; });
-  const [newPengeluaran, setNewPengeluaran] = useState({ nama:'', kategori:'hadiah' as any, jumlah:'', metode:'cash' as any, penerima:'', catatan:'' });
-  const [sponsorSlideIdx, setSponsorSlideIdx] = useState(0);
-  const [sponsors, setSponsors] = useState<any[]>(()=>{ try{ const s=localStorage.getItem('hutri-sponsors'); if(s) return JSON.parse(s); }catch{} return [
-    { id:'SP001', nama:'Toko Berkah Mawar', deskripsi:'Sponsor utama — sembako & hadiah', logo:'', website:'tokobekah-mawar.com' },
-    { id:'SP002', nama:'Bengkel Sukses Motor', deskripsi:'Sponsor doorprize — servis motor 1 tahun', logo:'', website:'sukses-motor.id' },
-    { id:'SP003', nama:'Warung Bu RT', deskripsi:'Konsumsi panitia & peserta lomba', logo:'🍱', website:'-' },
-    { id:'SP004', nama:'Apotek Sehat Sentosa', deskripsi:'P3K & obat-obatan acara', logo:'💊', website:'sehat-sentosa.com' },
-  ]; });
-  const [newSponsor, setNewSponsor] = useState({ nama:'', deskripsi:'', logo:'🏪', website:'' });
-  const editParticipantRef = useRef<Participant|null>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
-
-  useEffect(()=>{ localStorage.setItem('hutri-participants-mawar', JSON.stringify(participants)); setLastUpdate(new Date().toLocaleTimeString('id-ID')); },[participants]);
-  useEffect(()=>{ localStorage.setItem('hutri-donors-mawar', JSON.stringify(donors)); },[donors]);
-  useEffect(()=>{ localStorage.setItem('hutri-funding-mawar', JSON.stringify(funding)); },[funding]);
-  useEffect(()=>{ localStorage.setItem('hutri-transaksi', JSON.stringify(transaksi)); },[transaksi]);
-  useEffect(()=>{ localStorage.setItem('hutri-gallery', JSON.stringify(gallery)); },[gallery]);
-  useEffect(()=>{ localStorage.setItem('hutri-inventory', JSON.stringify(inventory)); },[inventory]);
-  useEffect(()=>{ localStorage.setItem('hutri-comments', JSON.stringify(comments)); },[comments]);
-  useEffect(()=>{ localStorage.setItem('hutri-archive', JSON.stringify(archive)); },[archive]);
-  useEffect(()=>{ localStorage.setItem('hutri-pengeluaran', JSON.stringify(pengeluaran)); },[pengeluaran]);
-  useEffect(()=>{ localStorage.setItem('hutri-sponsors', JSON.stringify(sponsors)); },[sponsors]);
-  useEffect(()=>{ localStorage.setItem('hutri-talents', JSON.stringify(talents)); },[talents]);
-  useEffect(()=>{ const t = setInterval(()=>setSponsorSlideIdx(prev=>(prev+1)%Math.max(1,sponsors.length)), 4000); return ()=>clearInterval(t); },[sponsors.length]);
-
-  const savePengeluaran = async () => {
-    if(!newPengeluaran.nama||!newPengeluaran.jumlah){ alert('Lengkapi nama & jumlah'); return; }
-    const ne:any = { id:`OUT-${Date.now()}`, nama:newPengeluaran.nama, kategori:newPengeluaran.kategori, jumlah:Number(newPengeluaran.jumlah), metode:newPengeluaran.metode, penerima:newPengeluaran.penerima||'-', catatan:newPengeluaran.catatan||'', waktu:new Date().toLocaleString('id-ID') };
-    setPengeluaran(prev=>[ne, ...prev]);
-    // juga masuk ke transaksi realtime sebagai pengeluaran
-    setTransaksi(prev=>[{ id:`TRX-${Date.now()}`, metode:ne.metode==='cash'?'qris-dana':'transfer-seabank', nama:ne.nama, jumlah:-ne.jumlah, waktu:ne.waktu, status:'pengeluaran', sumber:ne.penerima||ne.kategori }, ...prev]);
-    // Simpan ke Supabase
-    (async()=>{
-      try{
-        const admin=getSupabaseAdmin();
-        await admin.from('pendanaan').insert([{ nama:ne.nama, jenis:'pengeluaran', jumlah:-ne.jumlah, kategori:ne.kategori, metode:ne.metode, keterangan:ne.penerima||ne.kategori, status:'confirmed' }]);
-      }catch(e){ console.warn('Gagal simpan pengeluaran ke Supabase', e); }
-    })();
-    setNewPengeluaran({ nama:'', kategori:'hadiah', jumlah:'', metode:'cash', penerima:'', catatan:'' });
-  };
-  const saveSponsor = async () => {
-    if(!newSponsor.nama){ alert('Lengkapi nama sponsor'); return; }
-    const ns:any = { id:`SP-${Date.now()}`, nama:newSponsor.nama, deskripsi:newSponsor.deskripsi, logo:newSponsor.logo||'', website:newSponsor.website };
-    setSponsors(prev=>[ns, ...prev]);
-    // Simpan ke Supabase
-    (async()=>{
-      try{
-        const admin=getSupabaseAdmin();
-        await admin.from('pendanaan').insert([{ nama:ns.nama, jenis:'sponsor', jumlah:0, kategori:'sponsor', metode:'transfer', keterangan:ns.deskripsi||ns.website||'Sponsor', status:'confirmed' }]);
-        await admin.from('sponsor').insert([{ nama:ns.nama, deskripsi:ns.deskripsi, logo:ns.logo, website:ns.website }]);
-      }catch(e){ console.warn('Gagal simpan sponsor ke Supabase', e); }
-    })();
-    setNewSponsor({ nama:'', deskripsi:'', logo:'🏪', website:'' });
-  };
-  useEffect(()=>{ try{ localStorage.setItem('isPanitia', String(isPanitia)); }catch{} },[isPanitia]);
-  useEffect(()=>{ try{ localStorage.setItem('isOwner', String(isOwner)); }catch{} },[isOwner]);
-  useEffect(()=>{ if(currentUser) localStorage.setItem('currentUser', JSON.stringify(currentUser)); },[currentUser]);
-  useEffect(()=>{ editParticipantRef.current = editParticipant; },[editParticipant]);
-  useEffect(()=>{ if(qrisCustom) try{ localStorage.setItem('qris-custom-image', qrisCustom); }catch{} },[qrisCustom]);
-
-  useEffect(()=>{
-    let bc: BroadcastChannel | null = null;
+  // ===== FETCH PESERTA — langsung dari Supabase =====
+  const fetchParticipants = useCallback(async () => {
     try {
-      bc = new BroadcastChannel('hutri-sync');
-      bc.onmessage = (ev)=>{
-        const msg = ev.data;
-        if (msg?.type==='new-peserta' && msg.data) {
-          const np = msg.data as Participant;
-          setParticipants(prev=>{ if(prev.some(p=>p.id===np.id)) return prev; setHighlightId(np.id); setTimeout(()=>setHighlightId(null),4000); return [np, ...prev]; });
-        }
-        if (msg?.type==='new-komentar' && msg.data) {
-          setComments(prev=> prev.some(c=>c.id===msg.data.id) ? prev : [msg.data, ...prev]);
-        }
-      };
-    } catch {}
-    return ()=>{ try{ bc?.close(); }catch{} };
-  },[]);
-
-  // Supabase sync utama: gunakan tabel Supabase sebagai sumber data utama
-  useEffect(()=>{
-    let channels: any[] = [];
-    const admin = getSupabaseAdmin();
-
-    const fetchTable = async (table: string) => {
-      try {
-        let res = await admin.from(table).select('*').order('created_at', { ascending: false }).limit(500);
-        if (res.error) {
-          // beberapa tabel user tidak punya created_at -> coba tanpa order
-          res = await admin.from(table).select('*').limit(500);
-        }
-        if (res.error) throw res.error;
-        return res.data || [];
-      } catch (e) {
-        console.warn('table skip', table, e);
-        return [];
+      const c = new AbortController(); setTimeout(() => c.abort(), 4000);
+      const { data } = await supabase.from('pendaftar').select('*').order('id', { ascending: true }).abortSignal(c.signal);
+      if (data && data.length > 0) {
+        const map = new Map<string, Participant>();
+        [...data].sort((a: any, b: any) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()).forEach((item: any) => {
+          const n = (item.nama || item.name || '').trim(); if (!n) return;
+          const ph = (item.telepon || item.hp || '').replace(/\D/g, '');
+          const rt = item.rt || item.address || ''; if (!rt || rt === '-') return;
+          if (ph.includes('81991176369')) return;
+          const idx = map.size + 1;
+          map.set(`${item.id}`, { id: `MWR81-${String(idx).padStart(4, '0')}`, name: n, rt, hp: item.telepon || item.hp || '-', dbId: item.id, lomba: typeof item.lomba === 'string' ? item.lomba.split(',').map((x: string) => x.trim()).filter(Boolean) : (item.lomba || []), catatan: item.catatan || '', waktu: item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID') });
+        });
+        setParticipants(Array.from(map.values()).reverse());
       }
+    } catch { /* Supabase offline → biarkan data lokal */ }
+    setLastRefresh(new Date());
+  }, []);
+
+  // ===== FETCH KEUANGAN — GABUNGKAN SEMUA TABEL SUPABASE =====
+  // Membaca: keuangan, sponsor, iuran warga, donasi, donasi cash, donasi online
+  const fetchKeuangan = useCallback(async () => {
+    const all: KeuanganEntry[] = [];
+    const push = (rows: any[], defaultJenis: string, idOffset: number) => {
+      (rows || []).forEach((r: any, i: number) => {
+        const nama = r.nama || r.name || r.sumber || '';
+        if (!nama) return;
+        all.push({
+          id: idOffset + (Number(r.id) || i),
+          nama,
+          jenis: String(r.jenis || defaultJenis || 'donasi').toLowerCase(),
+          jumlah: Number(r.jumlah) || 0,
+          keterangan: r.keterangan || r.deskripsi || r.catatan || '',
+          created_at: r.created_at,
+        });
+      });
     };
-
-    const loadAllFromSupabase = async () => {
-      try {
-        const pesertaRows = await fetchTable('pendaftar');
-        const mappedPeserta: Participant[] = pesertaRows.map((d:any, i:number)=>({
-          id: d.id?.toString().startsWith('MWR') ? d.id : `MWR81-${String(i+1).padStart(4,'0')}`,
-          name: d.nama || d.name || 'Tanpa Nama',
-          rt: d.rt || '',
-          hp: d.telepon || d.hp || '-',
-          lomba: typeof d.lomba==='string' ? d.lomba.split(',').map((x:string)=>x.trim()).filter(Boolean) : Array.isArray(d.lomba) ? d.lomba : [],
-          catatan: d.catatan || 'Live join',
-          waktu: d.created_at ? new Date(d.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'),
-          createdAt: d.created_at ? new Date(d.created_at).getTime() : Date.now(),
-        }));
-        setParticipants(mappedPeserta);
-
-        const [donasiRows, donasiCashRowsData, donasiOnlineRowsData, iuranRowsData, sponsorRowsData, keuanganRows, inventoryRows, commentRows] = await Promise.all([
-          fetchTable('donasi'),
-          fetchTable('donasi cash'),
-          fetchTable('donasi online'),
-          fetchTable('iuran warga'),
-          fetchTable('sponsor'),
-          fetchTable('keuangan'),
-          fetchTable('inventory'),
-          fetchTable('komentar galeri'),
-        ]);
-
-        // raw states per tabel supabase agar blok transaksi realtime sinkron persis dengan tabel database
-        setIuranRows(iuranRowsData);
-        setDonasiRowsRaw(donasiRows);
-        setDonasiCashRows(donasiCashRowsData);
-        setDonasiOnlineRows(donasiOnlineRowsData);
-        setSponsorRows(sponsorRowsData);
-        setKeuanganRowsRaw(keuanganRows);
-
-        const mappedDonors: Donor[] = [
-          ...donasiRows.map((d:any)=>({ id:`don-${d.id}`, name:d.nama||'Donatur', alamat:d.alamat||'-', jumlah:Number(d.jumlah)||0, pesan:d.pesan||'', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'donasi', jenis:'donasi' })),
-          ...donasiCashRows.map((d:any)=>({ id:`dc-${d.id}`, name:d.nama||'Donatur Cash', alamat:d.alamat||'Cash', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Cash', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'cash', jenis:'donasi cash' })),
-          ...donasiOnlineRows.map((d:any)=>({ id:`do-${d.id}`, name:d.nama||'Donatur Online', alamat:d.alamat||'Transfer/QRIS', jumlah:Number(d.jumlah)||0, pesan:d.keterangan||d.pesan||'Donasi Online', waktu:d.created_at?new Date(d.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID'), isAnon:!!d.is_anon, metode:'online', jenis:'donasi online' })),
-        ];
-        setDonors(mappedDonors);
-
-        const mappedFunding: Funding[] = [
-          ...iuranRows.map((f:any)=>({ id:`iuran-${f.id}`, sumber:f.nama||f.sumber||'Iuran Warga', jumlah:Number(f.jumlah)||0, kategori:'iuran' as const, status:'confirmed' as const, metode:'cash' as const, jenis:'iuran warga' })),
-          ...sponsorRows.map((f:any)=>({ id:`sponsor-${f.id}`, sumber:f.nama||f.sumber||'Sponsor', jumlah:Number(f.jumlah)||0, kategori:'sponsor' as const, status:'confirmed' as const, metode:'transfer' as const, jenis:'sponsor' })),
-          ...keuanganRows.map((f:any)=>({
-            id:`keu-${f.id}`,
-            sumber:f.nama||f.sumber||'Keuangan',
-            jumlah:Number(f.jumlah)||0,
-            kategori:(String(f.jenis||'').toLowerCase().includes('iuran')?'iuran':String(f.jenis||'').toLowerCase().includes('sponsor')?'sponsor':String(f.jenis||'').toLowerCase().includes('donatur')?'donatur':String(f.jenis||'').toLowerCase().includes('online')?'donasi_online':String(f.jenis||'').toLowerCase().includes('cash')?'donasi_cash':String(f.jenis||'').toLowerCase().includes('donasi')?'donasi':'kas') as any,
-            status:'confirmed' as const,
-            metode:(String(f.keterangan||'').toLowerCase().includes('qris')?'qris':String(f.keterangan||'').toLowerCase().includes('transfer')?'transfer':'cash') as any,
-            jenis:f.jenis||'keuangan',
-          })),
-        ];
-        setFunding(mappedFunding);
-
-        const mappedTransaksi = [
-          ...mappedFunding.map((f:any)=>({ id:`trx-f-${f.id}`, metode:f.metode==='qris'?'qris-dana':f.metode==='transfer'?'transfer-seabank':'transfer-dana', nama:f.sumber, jumlah:f.jumlah, waktu:new Date().toLocaleString('id-ID'), status:'success', sumber:f.jenis||f.sumber })),
-          ...mappedDonors.map((d:any)=>({ id:`trx-d-${d.id}`, metode:d.metode==='cash'?'qris-dana':d.metode==='online'?'transfer-seabank':'qris-dana', nama:d.name, jumlah:d.jumlah, waktu:d.waktu, status:'success', sumber:d.jenis||d.alamat })),
-          ...pengeluaran.map((p:any)=>({ id:`trx-o-${p.id}`, metode:p.metode==='qris'?'qris-dana':p.metode==='transfer'?'transfer-seabank':'transfer-dana', nama:p.nama, jumlah:-Math.abs(Number(p.jumlah)||0), waktu:p.waktu, status:'pengeluaran', sumber:p.kategori||p.penerima })),
-        ];
-        setTransaksi(mappedTransaksi);
-
-        if (inventoryRows.length) {
-          setInventory(inventoryRows.map((i:any)=>({ id:i.id, nama:i.nama, kategori:i.kategori||'peralatan', jumlah:Number(i.jumlah)||0, kondisi:i.kondisi||'baik', lokasi:i.lokasi||'-', penanggungJawab:i.penanggung_jawab||i.penanggungJawab||'-' })));
-        }
-        if (commentRows.length) {
-          setComments(commentRows.map((c:any)=>({ id:c.id, galleryId:c.gallery_id||'umum', nama:c.nama||'Warga', pesan:c.pesan||'', waktu:c.created_at?new Date(c.created_at).toLocaleString('id-ID'):new Date().toLocaleString('id-ID') })));
-        }
-      } catch (e) {
-        console.warn('Supabase sync gagal, cek URL/API/table', e);
-      }
-    };
-
-    loadAllFromSupabase();
-
-    const subscribe = (table:string) => {
-      try {
-        const ch = supabase.channel(`rt-${table}-${Math.random()}`)
-          .on('postgres_changes',{event:'*', schema:'public', table},()=>{
-            loadAllFromSupabase();
-            setLastUpdate(new Date().toLocaleTimeString('id-ID'));
-          })
-          .subscribe();
-        channels.push(ch);
-      } catch (e) {
-        console.warn('channel fail', table, e);
-      }
-    };
-
-    ['pendaftar','donasi','donasi cash','donasi online','iuran warga','sponsor','keuangan','inventory','komentar galeri'].forEach(subscribe);
-
-    return ()=>{
-      channels.forEach(ch=>{ try{ supabase.removeChannel(ch); }catch{} });
-    };
-  },[pengeluaran]);
-
-  useEffect(()=>{ if(!live) return; const iv=setInterval(()=>setLastUpdate(new Date().toLocaleTimeString('id-ID')),4000); return()=>clearInterval(iv); },[live]);
-
-  const totalDana = useMemo(()=>{
-    return funding.reduce((sum,f)=>sum+Number(f.jumlah||0),0) + donors.reduce((sum,d)=>sum+Number(d.jumlah||0),0);
-  },[funding,donors]);
-
-  // Sumber data utama untuk blok Transaksi Realtime: RAW Supabase, dipisah CASH vs TRANSFER
-  const methodOf = (row:any) => {
-    const txt = `${row.metode||''} ${row.keterangan||''} ${row.sumber||''} ${row.alamat||''}`.toLowerCase();
-    if (txt.includes('transfer') || txt.includes('seabank') || txt.includes('bank') || txt.includes('qris') || txt.includes('online') || txt.includes('dana')) return 'transfer';
-    return 'cash';
-  };
-
-  const cashEntries = useMemo(()=>{
-    const fromKeuanganCash = keuanganRowsRaw
-      .filter((k:any)=>methodOf(k)==='cash' && !String(k.jenis||'').toLowerCase().includes('pengeluaran'))
-      .map((k:any)=>({ id:`kw-c-${k.id}`, nama:k.nama||'Cash', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'cash', waktu:k.created_at||'', jenis:k.jenis||'cash' }));
-    if (fromKeuanganCash.length > 0) return fromKeuanganCash;
-    return [
-      ...iuranRows.map((r:any)=>({ id:`iw-${r.id}`, nama:r.nama||r.sumber||'Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'cash', waktu:r.created_at||'', jenis:'iuran' })),
-      ...donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur Cash', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'cash', waktu:r.created_at||'', jenis:'donasi cash' })),
+    const sources: [string, string, number][] = [
+      ['keuangan', 'donasi', 0],
+      ['sponsor', 'sponsor', 1000000],
+      ['iuran warga', 'iuran', 2000000],
+      ['donasi', 'donasi', 3000000],
+      ['donasi cash', 'cash', 4000000],
+      ['donasi online', 'donasi', 5000000],
     ];
-  },[iuranRows, donasiCashRows, keuanganRowsRaw]);
+    await Promise.all(sources.map(async ([tbl, dj, off]) => {
+      try {
+        const c = new AbortController(); setTimeout(() => c.abort(), 4000);
+        const { data } = await supabase.from(tbl).select('*').abortSignal(c.signal);
+        if (data) push(data, dj, off);
+      } catch { /* tabel tidak ada / offline — lewati */ }
+    }));
+    // Dedupe entri identik
+    const unique = all.filter((v, i, a) => a.findIndex(t => t.nama === v.nama && t.jumlah === v.jumlah && t.jenis === v.jenis && (t.keterangan || '') === (v.keterangan || '')) === i);
+    unique.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    setKeuanganList(unique);
+    setLastRefresh(new Date());
+  }, []);
 
-  const transferEntries = useMemo(()=>{
-    const fromKeuanganTransfer = keuanganRowsRaw
-      .filter((k:any)=>methodOf(k)==='transfer' && !String(k.jenis||'').toLowerCase().includes('pengeluaran'))
-      .map((k:any)=>({ id:`kw-t-${k.id}`, nama:k.nama||'Transfer', jumlah:Number(k.jumlah||0), sumber:k.keterangan||'transfer', waktu:k.created_at||'', jenis:k.jenis||'transfer' }));
-    if (fromKeuanganTransfer.length > 0) return fromKeuanganTransfer;
-    return [
-      ...donasiOnlineRows.map((r:any)=>({ id:`do-${r.id}`, nama:r.nama||'Transfer', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'transfer', waktu:r.created_at||'', jenis:'donasi online' })),
-      ...sponsorRows.map((r:any)=>({ id:`sp-t-${r.id}`, nama:r.nama||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'transfer', waktu:r.created_at||'', jenis:'sponsor' })),
-    ];
-  },[donasiOnlineRows, sponsorRows, keuanganRowsRaw]);
+  const fetchInventory = useCallback(async () => {
+    try {
+      const c = new AbortController(); setTimeout(() => c.abort(), 4000);
+      const { data } = await supabase.from('inventory').select('*').order('id', { ascending: true }).abortSignal(c.signal);
+      if (data && data.length > 0) setInventoryList(data);
+    } catch { /* offline */ }
+  }, []);
 
-  const iuranEntries = useMemo(()=>{
-    if (iuranRows.length > 0) return iuranRows.map((r:any)=>({ id:`iw-${r.id}`, nama:r.nama||r.sumber||'Iuran Warga', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'iuran warga', waktu:r.created_at||'' }));
-    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('iuran')).map((k:any)=>({ id:`kw-i-${k.id}`, nama:k.nama||'Iuran Warga', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'iuran warga', waktu:k.created_at||'' }));
-  },[iuranRows, keuanganRowsRaw]);
+  const fetchTalenta = useCallback(async () => {
+    try {
+      const c = new AbortController(); setTimeout(() => c.abort(), 4000);
+      const { data } = await supabase.from('talenta').select('*').order('no', { ascending: true }).abortSignal(c.signal);
+      if (data && data.length > 0) setTalentaList(data);
+    } catch { /* offline → pakai default */ }
+  }, []);
 
-  const donaturEntries = useMemo(()=>{
-    const fromTable = donasiCashRows.length > 0 ? donasiCashRows.map((r:any)=>({ id:`dc-${r.id}`, nama:r.nama||'Donatur', jumlah:Number(r.jumlah||0), sumber:r.keterangan||'donatur', waktu:r.created_at||'' })) : [];
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donatur')).map((k:any)=>({ id:`kw-dt-${k.id}`, nama:k.nama||'Donatur', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donatur', waktu:k.created_at||'' }));
-    return [...fromTable, ...fromKeuangan];
-  },[donasiCashRows, keuanganRowsRaw]);
+  // Fetch ONCE on mount
+  useEffect(() => { fetchParticipants(); fetchKeuangan(); fetchInventory(); fetchTalenta(); }, []);
 
-  const sponsorEntries = useMemo(()=>{
-    const fromTable = sponsorRows.length > 0 ? sponsorRows.map((r:any)=>({ id:`sp-${r.id}`, nama:r.nama||r.sumber||'Sponsor', jumlah:Number(r.jumlah||0), sumber:r.keterangan||r.website||'sponsor', waktu:r.created_at||'', deskripsi:r.keterangan||r.deskripsi||'Sponsor', logo:r.logo||'' })) : [];
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('sponsor')).map((k:any)=>({ id:`kw-sp-${k.id}`, nama:k.nama||'Sponsor', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'sponsor', waktu:k.created_at||'', deskripsi:k.keterangan||'Sponsor', logo:'' }));
-    return [...fromTable, ...fromKeuangan];
-  },[sponsorRows, keuanganRowsRaw]);
+  // Recalculate totalDana = pemasukan - pengeluaran
+  useEffect(() => {
+    const masuk = keuanganList.filter(k => categorizeKeuangan(k) !== 'pengeluaran').reduce((s, k) => s + (k.jumlah || 0), 0);
+    const keluar = keuanganList.filter(k => categorizeKeuangan(k) === 'pengeluaran').reduce((s, k) => s + Math.abs(k.jumlah || 0), 0);
+    setTotalDana(masuk - keluar);
+  }, [keuanganList]);
 
-  const donasiEntries = useMemo(()=>{
-    const direct = [...donasiRowsRaw, ...donasiCashRows, ...donasiOnlineRows];
-    if (direct.length > 0) return direct.map((r:any)=>({ id:`d-${r.id}`, nama:r.nama||'Donasi', jumlah:Number(r.jumlah||0), sumber:r.alamat||r.keterangan||r.pesan||'donasi', waktu:r.created_at||'' }));
-    return keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('donasi')).map((k:any)=>({ id:`kw-d-${k.id}`, nama:k.nama||'Donasi', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'donasi', waktu:k.created_at||'' }));
-  },[donasiRowsRaw, donasiCashRows, donasiOnlineRows, keuanganRowsRaw]);
+  // Realtime: langganan SEMUA tabel keuangan + pendaftar + talenta
+  useEffect(() => {
+    if (!isLive) return;
+    const channels = ['keuangan', 'sponsor', 'iuran warga', 'donasi', 'donasi cash', 'donasi online'].map(tbl =>
+      supabase.channel(`rt-${tbl.replace(/\s/g, '-')}`).on('postgres_changes', { event: '*', schema: 'public', table: tbl }, () => { fetchKeuangan(); }).subscribe()
+    );
+    const chP = supabase.channel('rt-pendaftar').on('postgres_changes', { event: '*', schema: 'public', table: 'pendaftar' }, (payload) => {
+      fetchParticipants().then(() => {
+        if (payload.eventType === 'INSERT' && (payload.new as any)?.nama) {
+          const n = (payload.new as any).nama;
+          setNewRowIds(p => { const s = new Set(p); s.add(n); return s; });
+          setTimeout(() => setNewRowIds(p => { const s = new Set(p); s.delete(n); return s; }), 5000);
+        }
+      });
+    }).subscribe();
+    const chT = supabase.channel('rt-talenta').on('postgres_changes', { event: '*', schema: 'public', table: 'talenta' }, () => { fetchTalenta(); }).subscribe();
+    const iv = setInterval(() => { fetchKeuangan(); fetchParticipants(); }, 30000);
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); supabase.removeChannel(chP); supabase.removeChannel(chT); clearInterval(iv); };
+  }, [isLive, fetchKeuangan, fetchParticipants, fetchTalenta]);
 
-  const pengeluaranEntries = useMemo(()=>{
-    const fromKeuangan = keuanganRowsRaw.filter((k:any)=>String(k.jenis||'').toLowerCase().includes('pengeluaran')).map((k:any)=>({ id:`kw-out-${k.id}`, nama:k.nama||'Pengeluaran', jumlah:Number(k.jumlah)||0, sumber:k.keterangan||'pengeluaran', waktu:k.created_at||'' }));
-    return fromKeuangan.length > 0 ? fromKeuangan : pengeluaran.map((p:any)=>({ id:p.id, nama:p.nama, jumlah:Number(p.jumlah||0), sumber:p.penerima||p.catatan||p.kategori, waktu:p.waktu||'' }));
-  },[keuanganRowsRaw, pengeluaran]);
+  // Hash routing
+  useEffect(() => {
+    const check = () => {
+      const h = window.location.hash;
+      if (h === '#admin' || h === '#/admin') setPage('admin');
+      else if (h === '#gallery' || h === '#/gallery') setPage('gallery');
+      else if (h === '#inventory' || h === '#/inventory') setPage('inventory');
+      else setPage('main');
+    };
+    check();
+    window.addEventListener('hashchange', check);
+    return () => window.removeEventListener('hashchange', check);
+  }, []);
 
-  const pemasukanRealtime = useMemo(()=> cashEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0) + transferEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0), [cashEntries, transferEntries]);
-  const pengeluaranRealtime = useMemo(()=> pengeluaranEntries.reduce((s:any,x:any)=>s+Number(x.jumlah||0),0), [pengeluaranEntries]);
+  const goMain = () => { setPage('main'); window.location.hash = ''; };
 
-  const filtered = useMemo(()=> participants.filter(p=>{
-    const ms=!search||p.name.toLowerCase().includes(search.toLowerCase())||p.id.toLowerCase().includes(search.toLowerCase())||p.rt.toLowerCase().includes(search.toLowerCase());
-    const ml=filterLomba==='Semua'||p.lomba.some(l=>l.includes(filterLomba));
-    const mr=filterRT==='Semua'||p.rt.includes(filterRT);
-    return ms&&ml&&mr;
-  }),[participants,search,filterLomba,filterRT]);
-  const filteredLomba = useMemo(()=> LOMBA_DATA.filter(l=> filterKategori==='Semua'||l.kategori===filterKategori), [filterKategori]);
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    if(!formData.name.trim()||!formData.hp.trim()||!formData.rt.trim()){ alert('Lengkapi!'); return; }
-    if(formData.lomba.length===0){ alert('Pilih lomba!'); return; }
-    setIsSubmitting(true);
-    const newP: Participant = { id:`MWR81-${String(Date.now()).slice(-4)}`, name:formData.name.trim(), rt:formData.rt.trim(), hp:formData.hp.trim(), lomba:formData.lomba, catatan:formData.catatan||'Terdaftar via Web', waktu:new Date().toLocaleString('id-ID'), createdAt:Date.now() };
-    setParticipants(prev=>{ const updated=[newP, ...prev]; try{ localStorage.setItem('hutri-participants-mawar', JSON.stringify(updated)); localStorage.setItem('hutri-last-peserta', JSON.stringify(newP)); }catch{} return updated; });
-    setHighlightId(newP.id); setTimeout(()=>setHighlightId(null),4000);
-    setFormData({ name:'', rt:'', hp:'', lomba:[], catatan:'' }); setShowRegister(false);
-    try{ const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-peserta', data:newP }); setTimeout(()=>bc.close(),100); }catch{}
-    (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('pendaftar').insert([{ nama:newP.name, telepon:newP.hp, rt:newP.rt, lomba:newP.lomba.join(', '), catatan:newP.catatan }]); }catch{} finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); } })();
-    setTimeout(()=>setIsSubmitting(false),300);
+  // ===== SHARED PROPS =====
+  const sharedData: SharedData = {
+    participants, keuanganList, inventoryList, talentaList, sponsorList, totalDana, isLive, lastRefresh, newRowIds, setIsLive,
+    fetchParticipants, fetchKeuangan, fetchInventory, fetchTalenta, setNewRowIds, setParticipants, setKeuanganList, setInventoryList, setTalentaList, setTotalDana, setLastRefresh
   };
+  void setSponsorList;
 
-  const handleDonasi = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt=Number(donasiForm.jumlah); if(!amt||amt<1000){ alert('Minimal 1.000'); return; }
-    const newD: Donor = { id:`DON-${Date.now()}`, name:donasiForm.isAnon?'Hamba Allah':donasiForm.name||'Hamba Allah', alamat:donasiForm.alamat, jumlah:amt, pesan:donasiForm.pesan, waktu:new Date().toLocaleString('id-ID'), isAnon:donasiForm.isAnon, metode:'online', jenis:'donasi online' };
-    setDonors(prev=>[newD, ...prev]);
-    setDonasiForm({ name:'', alamat:'', jumlah:'', pesan:'', isAnon:false });
-    (async()=>{
-      try{
-        const admin=getSupabaseAdmin();
-        await admin.from('donasi').insert([{ nama:newD.name, alamat:newD.alamat, jumlah:newD.jumlah, pesan:newD.pesan, is_anon:newD.isAnon }]);
-        await admin.from('donasi online').insert([{ nama:newD.name, alamat:newD.alamat, jumlah:newD.jumlah, keterangan:newD.pesan||'Donasi Online', is_anon:newD.isAnon }]);
-        await admin.from('keuangan').insert([{ nama:newD.name, jenis:'donasi online', jumlah:newD.jumlah, keterangan:`${newD.alamat} / ${newD.pesan||'-'}`, is_anon:newD.isAnon }]);
-      }catch(e){ console.warn('donasi sync error', e); }
-      finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); }
-    })();
-    alert('Terima kasih! Donasi masuk realtime ke Supabase.');
-  };
-
-  const loginPanitia = () => {
-    const u = loginUsername.trim().toLowerCase();
-    const p = loginPassword.trim().toLowerCase();
-    if (!u || !p) { alert('Isi username & password!'); return; }
-    const allUsers = [...PANITIA_USERS, ...OWNER_USERS];
-    const found = allUsers.find(us=> us.username.toLowerCase()===u && us.password.toLowerCase()===p);
-    if (found) {
-      const isOwn = OWNER_USERS.some(o=> o.username.toLowerCase()===u);
-      setIsPanitia(true); setIsOwner(isOwn); setCurrentUser(found); setShowPanitiaLogin(false); setLoginUsername(''); setLoginPassword('');
-      try{ localStorage.setItem('isPanitia','true'); localStorage.setItem('isOwner',String(isOwn)); localStorage.setItem('currentUser', JSON.stringify(found)); }catch{}
-      setAdminTab(isOwn ? 'supabase' : 'overview');
-      setTimeout(()=>document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}),200);
-    } else {
-      alert('Username / Password salah!\nPanitia: admin/mawar81, eka/pj2026!, bayu/ketua2026!, aulia/bendahara2026!, sugiono/wakil2026!, lani/sekretaris2026!, puput/bendahara2!\nOwner: owner/owner81');
-    }
-  };
-
-  const exportCSV = () => { let csv='No,ID,Nama,RT,HP,Lomba,Waktu\n'; filtered.forEach((p,i)=>{ csv+=`${i+1},${p.id},"${p.name}","${p.rt}",${p.hp},"${p.lomba.join('; ')}",${p.waktu}\n`; }); const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`peserta-mawar-${new Date().toISOString().slice(0,10)}.csv`; a.click(); };
-  const downloadTXT = () => { const txt=RUNDOWN.map(r=>`${r.jam} - ${r.kegiatan}`).join('\n'); const b=new Blob([`RUNDOWN HUT RI 81 RT 002 RW 014\n\n${txt}`],{type:'text/plain'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='rundown-hut81.txt'; a.click(); };
-  const downloadKeuangan = () => {
-    let csv='Jenis,Nama/Penerima,Jumlah,Metode,Waktu,Keterangan\n';
-    funding.forEach(f=>{ csv+=`Pemasukan,"${f.sumber}",${f.jumlah},${f.metode},${new Date().toLocaleString('id-ID')},${f.kategori}\n`; });
-    pengeluaran.forEach(p=>{ csv+=`PENGELUARAN,"${p.nama}",-${p.jumlah},${p.metode},${p.waktu},${p.catatan||p.penerima}\n`; });
-    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`keuangan-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  };
-  const downloadDonasi = () => {
-    let csv='Nama,Alamat,Jumlah,Pesan,Waktu,Anonim\n';
-    donors.forEach(d=>{ csv+=`"${d.name}","${d.alamat}",${d.jumlah},"${d.pesan||''}",${d.waktu},${d.isAnon}\n`; });
-    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`donasi-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  };
-  const downloadInventory = () => {
-    let csv='Nama,Kategori,Jumlah,Kondisi,Lokasi,Penanggung Jawab\n';
-    inventory.forEach(i=>{ csv+=`"${i.nama}",${i.kategori},${i.jumlah},${i.kondisi},"${i.lokasi}","${i.penanggungJawab}"\n`; });
-    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`inventory-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  };
-  const downloadPengeluaran = () => {
-    let csv='Nama,Kategori,Jumlah,Metode,Penerima,Waktu,Catatan\n';
-    pengeluaran.forEach(p=>{ csv+=`"${p.nama}",${p.kategori},${p.jumlah},${p.metode},"${p.penerima||'-'}",${p.waktu},"${p.catatan||''}"\n`; });
-    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`pengeluaran-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  };
-  const downloadTalenta = () => {
-    let csv='No,Jenis Penampilan,Nama Peserta,Jumlah Peserta,Durasi,Penanggung Jawab,Status\n';
-    talents.forEach(t=>{ csv += `${t.no},"${t.jenis}","${t.peserta}",${t.jumlah||''},"${t.durasi}","${t.penanggungJawab}",${t.status?'Siap':'Belum'}\n`; });
-    const b=new Blob([csv],{type:'text/csv'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`talenta-malam-puncak-${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  };
-  const testSupabase = async () => { setSupabaseStatus('testing'); try { const { error } = await supabase.from('pendaftar').select('id').limit(1); if(error) throw error; setSupabaseStatus('ok'); } catch { setSupabaseStatus('fail'); } };
-
-  const renderPesertaRealtime = () => (
-    <section id="peserta" ref={tableRef} className="mt-4">
-      <div className="bg-[#C1272D] relative overflow-hidden">
-        <div className="absolute inset-0"><div className="absolute -top-24 -left-24 h-[420px] w-[420px] bg-white/10 rounded-full blur-[60px]" /><div className="absolute -bottom-32 -right-32 h-[520px] w-[520px] bg-black/20 rounded-full blur-[80px]" /></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 text-white">
-            <div><div className="inline-flex items-center gap-2 bg-white text-[#C1272D] px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#C1272D]"></span></span>LIVE • REAL-TIME</div><h2 className="mt-4 text-[28px] md:text-[40px] font-black leading-[0.9] tracking-tighter">TABEL REAL-TIME<br/><span className="font-serif italic font-light opacity-90">DAFTAR PESERTA</span></h2><p className="mt-3 text-[12px] md:text-[13px] leading-6 opacity-85 max-w-[56ch]">Setiap peserta bisa daftar lebih dari 1 lomba menggunakan nama, no telp dan no rumah yang sama — tidak diblok duplikat. Edit di admin langsung replace.</p></div>
-            <div className="flex flex-wrap gap-3"><div className="bg-white/15 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 min-w-[130px]"><div className="text-[9px] font-bold tracking-widest uppercase opacity-70">TOTAL PESERTA</div><div className="text-2xl font-black leading-none mt-1">{participants.length}</div></div><div className="bg-white text-[#C1272D] rounded-2xl px-4 py-3 min-w-[160px] shadow-xl"><div className="text-[9px] font-bold tracking-widest uppercase opacity-60">UPDATE TERAKHIR</div><div className="text-[12px] font-black mt-1 font-mono">{lastUpdate} WIB</div></div></div>
-          </div>
-          <div className="mt-8 bg-white rounded-[20px] shadow-[0_24px_64px_-16px_rgba(0,0,0,.5)] border overflow-hidden">
-            <div className="p-4 md:p-5 bg-[#FFFBF2] border-b border-zinc-200 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-2.5 flex-1"><div className="relative flex-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-[12px]">🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari Nama, ID, atau RT / Blok..." className="w-full h-10 pl-9 pr-4 rounded-full bg-white border border-zinc-200 text-[13px] font-medium" /></div><select value={filterLomba} onChange={e=>setFilterLomba(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua Lomba</option>{LOMBA_DATA.map(l=><option key={l.id} value={l.title}>{l.title}</option>)}</select><select value={filterRT} onChange={e=>setFilterRT(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua RT</option><option value="RT 002">RT 002</option><option value="Mawar 83">Mawar 83</option></select></div>
-              <div className="flex items-center gap-2"><button onClick={()=>setLive(!live)} className={`h-10 px-4 rounded-full text-[11px] font-black border ${live?'bg-emerald-600 text-white border-emerald-600':'bg-white text-zinc-600 border-zinc-200'}`}>{live?'LIVE ON':'OFF'}</button><button onClick={exportCSV} className="h-10 px-4 rounded-full bg-zinc-900 text-white text-[11px] font-black">📥 Export CSV</button></div>
-            </div>
-            <div className="overflow-x-auto max-h-[520px] overflow-y-auto custom-scrollbar"><table className="w-full text-[12px] min-w-[860px]"><thead className="sticky top-0 z-10"><tr className="bg-[#8B1A1E] text-white text-[10px] tracking-widest uppercase"><th className="text-left px-4 py-3 font-black">NO / ID</th><th className="text-left px-4 py-3 font-black">PESERTA & KONTAK</th><th className="text-left px-4 py-3 font-black">LOKASI RT</th><th className="text-left px-4 py-3 font-black">LOMBA DIIKUTI</th><th className="text-left px-4 py-3 font-black">WAKTU DAFTAR</th><th className="text-center px-4 py-3 font-black">STATUS</th></tr></thead><tbody>{filtered.map((p, idx)=>(<tr key={p.id} className={`${highlightId===p.id?'bg-amber-50 border-l-4 border-l-amber-400':idx%2===0?'bg-white':'bg-[#FFFBF2]'} border-b`}><td className="px-4 py-3"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-zinc-400">{String(idx+1).padStart(2,'0')}</span><span className="font-mono font-black text-[#C1272D] text-[11px] bg-[#F9E2E2] px-2 py-0.5 rounded-full border border-red-200">{p.id}</span></div></td><td className="px-4 py-3"><div className="font-bold text-[13px]">{p.name}</div><div className="text-[10px] text-zinc-500">📱 {maskHp(p.hp)} • {p.catatan||'Live join'}</div></td><td className="px-4 py-3"><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-100 border">{p.rt}</span></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1 max-w-[220px]">{p.lomba.slice(0,3).map(l=><span key={l} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border shadow-sm">{l}</span>)}</div></td><td className="px-4 py-3"><div className="text-[11px]">{p.waktu}</div></td><td className="px-4 py-3 text-center"><span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✅ TERDAFTAR</span></td></tr>))}</tbody></table></div>
-          </div>
-        </div>
-      </div>
-    </section>
+  if (page === 'admin') return <AdminPage key="admin-page" onBack={goMain} shared={sharedData} />;
+  if (page === 'gallery') return <GalleryPage key="gallery-page" onBack={goMain} />;
+  if (page === 'inventory') return <InventoryViewPage key="inventory-page" onBack={goMain} shared={sharedData} />;
+  return (
+    <MainPage
+      key="main-page"
+      shared={sharedData}
+      onAdminClick={() => { setPage('admin'); window.location.hash = '#admin'; }}
+      onGalleryClick={() => { setPage('gallery'); window.location.hash = '#gallery'; }}
+      onInventoryClick={() => { setPage('inventory'); window.location.hash = '#inventory'; }}
+    />
   );
-  const saveFunding = async () => {
-    if(!newFunding.sumber||!newFunding.jumlah){ alert('Lengkapi'); return; }
-    const nf:any = { id:`f-${Date.now()}`, sumber:newFunding.sumber, jumlah:Number(newFunding.jumlah), kategori:newFunding.kategori, status:'confirmed', metode:newFunding.metode };
-    setFunding(prev=>[...prev, nf]);
-    try { const bc=new BroadcastChannel('hutri-sync'); bc.postMessage({ type:'new-funding', data:nf }); bc.close(); } catch {}
-    (async()=>{
-      try{
-        const admin=getSupabaseAdmin();
-        await admin.from('keuangan').insert([{ nama:nf.sumber, jenis:nf.kategori, jumlah:nf.jumlah, keterangan:nf.metode, is_anon:false }]);
-        if (nf.kategori==='iuran') await admin.from('iuran warga').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
-        if (nf.kategori==='sponsor') await admin.from('sponsor').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
-        if (nf.kategori==='donatur') await admin.from('donasi cash').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:'Donatur / '+nf.metode }]);
-        if (nf.kategori==='donasi' || nf.kategori==='donasi_online') await admin.from('donasi online').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
-        if (nf.kategori==='donasi_cash') await admin.from('donasi cash').insert([{ nama:nf.sumber, jumlah:nf.jumlah, keterangan:nf.metode }]);
-      }catch(e:any){ alert('Gagal sync Supabase keuangan: '+(e.message||e)); }
-      finally { setLastUpdate(new Date().toLocaleTimeString('id-ID')); }
-    })();
-    setNewFunding({ sumber:'', jumlah:'', kategori:'iuran', metode:'cash' });
-  };
-  const saveCashDonasi = async () => {
-    if(!cashDonasi.nama||!cashDonasi.jumlah){ alert('Lengkapi'); return; }
-    const nd:any = { id:`DON-CASH-${Date.now()}`, name:cashDonasi.nama, alamat:'Cash via Panitia', jumlah:Number(cashDonasi.jumlah), pesan:`Cash ${cashDonasi.metode}`, waktu:new Date().toLocaleString('id-ID'), isAnon:false };
-    setDonors(prev=>[nd, ...prev]);
-    (async()=>{
-      try{
-        const admin=getSupabaseAdmin();
-        await admin.from('donasi').insert([{ nama:nd.name, alamat:'Cash', jumlah:nd.jumlah, pesan:nd.pesan, is_anon:false }]);
-        await admin.from('donasi cash').insert([{ nama:nd.name, jumlah:nd.jumlah, keterangan:nd.pesan, is_anon:false }]);
-        await admin.from('keuangan').insert([{ nama:nd.name, jenis:'donasi cash', jumlah:nd.jumlah, keterangan:nd.pesan, is_anon:false }]);
-      }catch(e){ console.warn('donasi cash sync error', e); }
-    })();
-    setCashDonasi({ nama:'', jumlah:'', metode:'cash' });
-  };
+}
 
-  if (showGalleryPage) {
-    return <GalleryPage onBack={()=>setShowGalleryPage(false)} />;
-  }
-
-  if (showInventoryPage) {
-    return (
-      <div className="min-h-screen bg-[#FFFBF5] text-zinc-900">
-        <header className="sticky top-0 z-40 bg-[#B71C1C] border-b shadow"><div className="max-w-7xl mx-auto px-4 h-[48px] flex items-center gap-3 text-white"><button onClick={()=>setShowInventoryPage(false)} className="flex items-center gap-1.5 text-[12px] font-bold">‹ Kembali</button><div className="h-5 w-[1px] bg-white/20" /><div className="font-bold text-[13px]">📦 Inventory Peralatan Panitia</div></div></header>
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex justify-between items-end"><div><h1 className="text-[28px] font-black">INVENTORY PERALATAN</h1><p className="text-[12px] text-zinc-500">Kelola peralatan & aksesoris panitia — bisa input/edit via Admin Panitia</p></div><button onClick={()=>{ if(!isPanitia){ setShowPanitiaLogin(true); return; } setAdminTab('inventory'); setShowInventoryPage(false); setTimeout(()=>document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}),200); }} className="h-9 px-4 rounded-full bg-[#C1272D] text-white text-[12px] font-bold">🔧 Kelola di Admin</button></div>
-          <div className="mt-6 grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {inventory.map(it=>(
-              <div key={it.id} className="bg-white rounded-2xl border p-4 shadow-sm"><div className="flex justify-between"><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kategori==='peralatan'?'bg-blue-50 text-blue-600':it.kategori==='aksesoris'?'bg-pink-50 text-pink-600':it.kategori==='sound'?'bg-purple-50 text-purple-600':'bg-zinc-100'}`}>{it.kategori}</span><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kondisi==='baik'?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}`}>{it.kondisi}</span></div><h4 className="mt-3 font-bold text-[14px]">{it.nama}</h4><div className="mt-2 text-[11px] space-y-1"><div>Jumlah: <b>{it.jumlah}</b></div><div>Lokasi: {it.lokasi}</div><div>PJ: {it.penanggungJawab}</div></div></div>
-            ))}
-          </div>
+// ================== INVENTORY VIEW PAGE ==================
+function InventoryViewPage({ onBack, shared }: { onBack: () => void; shared: SharedData }) {
+  const { inventoryList } = shared;
+  return (
+    <div className="min-h-screen bg-[#F5F5F0]">
+      <nav className="bg-[#B71C22]/95 backdrop-blur-md shadow-lg px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="text-white/80 hover:text-white text-sm font-semibold transition flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+            Kembali
+          </button>
+          <div className="h-4 w-px bg-white/20" />
+          <span className="font-bold text-white text-sm">📦 Inventory Peralatan & Aksesoris</span>
+        </div>
+      </nav>
+      <div className="max-w-4xl mx-auto px-4 py-10">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-black text-gray-900">📦 INVENTORY PANITIA</h1>
+          <p className="text-gray-500 mt-2">Daftar perlengkapan & aksesoris resmi HUT RI ke-81 Blok Mawar</p>
+          <p className="text-xs text-gray-400 mt-1">Dapat ditambahkan dan diedit secara realtime melalui Panel Panitia</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 text-gray-700">
+                <th className="px-4 py-3 text-left font-bold text-xs w-20">ID</th>
+                <th className="px-4 py-3 text-left font-bold text-xs">Nama Barang</th>
+                <th className="px-4 py-3 text-center font-bold text-xs w-28">Jumlah</th>
+                <th className="px-4 py-3 text-left font-bold text-xs">Kategori</th>
+                <th className="px-4 py-3 text-left font-bold text-xs">Keterangan</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {inventoryList.map((item, idx) => (
+                <tr key={item.id || idx} className="hover:bg-gray-50/50 transition">
+                  <td className="px-4 py-3.5 font-mono text-xs text-[#C1272D] font-bold">{item.id}</td>
+                  <td className="px-4 py-3.5 font-semibold text-gray-800">{item.nama}</td>
+                  <td className="px-4 py-3.5 text-center"><span className="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-full text-xs">{item.jumlah} {item.satuan}</span></td>
+                  <td className="px-4 py-3.5 text-xs text-gray-500">{item.kategori}</td>
+                  <td className="px-4 py-3.5 text-xs text-gray-500">{item.keterangan || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (showArchivePage) {
-    return (
-      <div className="min-h-screen bg-[#FFFBF5]">
-        <header className="sticky top-0 z-40 bg-[#B71C1C] border-b shadow"><div className="max-w-7xl mx-auto px-4 h-[48px] flex items-center gap-3 text-white"><button onClick={()=>setShowArchivePage(false)} className="text-[12px] font-bold">‹ Kembali</button><div className="font-bold text-[13px]">📚 Arsip Perayaan HUT RI</div></div></header>
-        <div className="max-w-5xl mx-auto px-4 py-10">
-          <h1 className="text-[28px] font-black text-center">ARSIP PERAYAAN HUT RI</h1><p className="text-center text-[12px] text-zinc-500 mt-1">Website reusable tiap tahun — data otomatis masuk ke kolom terpisah per tahun</p>
-          <div className="mt-8 grid md:grid-cols-3 gap-4">
-            {archive.map(a=>(
-              <div key={a.tahun} className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition">
-                <div className="h-10 w-10 rounded-xl bg-[#C1272D] text-white grid place-items-center font-black">{a.tahun}</div>
-                <h3 className="mt-3 font-black text-[15px]">{a.tema}</h3>
-                <p className="text-[11px] text-zinc-500 mt-1">{a.deskripsi}</p>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]"><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{a.peserta}</div><div>Peserta</div></div><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{a.lomba}</div><div>Lomba</div></div><div className="bg-zinc-50 rounded-xl p-2 text-center"><div className="font-black text-[14px]">{(a.dana/1000000).toFixed(0)}jt</div><div>Dana</div></div></div>
-              </div>
-            ))}
-          </div>
-          {isOwner && (
-            <div className="mt-8 bg-white rounded-2xl border p-5">
-              <h4 className="font-black text-[13px]">Tambah Tahun Baru (Owner)</h4>
-              <div className="mt-3 grid md:grid-cols-5 gap-2">
-                <input id="arch-tahun" type="number" placeholder="Tahun" className="h-10 px-3 rounded-xl border text-[12px]" />
-                <input id="arch-tema" placeholder="Tema" className="h-10 px-3 rounded-xl border text-[12px]" />
-                <input id="arch-peserta" type="number" placeholder="Peserta" className="h-10 px-3 rounded-xl border text-[12px]" />
-                <input id="arch-dana" type="number" placeholder="Dana" className="h-10 px-3 rounded-xl border text-[12px]" />
-                <button onClick={()=>{
-                  const tahun = Number((document.getElementById('arch-tahun') as HTMLInputElement).value);
-                  const tema = (document.getElementById('arch-tema') as HTMLInputElement).value;
-                  const peserta = Number((document.getElementById('arch-peserta') as HTMLInputElement).value);
-                  const dana = Number((document.getElementById('arch-dana') as HTMLInputElement).value);
-                  if(!tahun||!tema) return alert('Lengkapi');
-                  setArchive([{ tahun, tema, peserta: peserta||0, dana: dana||0, lomba: LOMBA_DATA.length, deskripsi: `Perayaan HUT RI ke-${tahun-1945}` }, ...archive]);
-                }} className="h-10 rounded-xl bg-[#C1272D] text-white font-bold text-[12px]">Tambah Tahun</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+// ================== MAIN PAGE ==================
+function MainPage({ shared, onAdminClick, onGalleryClick, onInventoryClick }: { shared: SharedData; onAdminClick: () => void; onGalleryClick: () => void; onInventoryClick: () => void }) {
+  const { participants, totalDana, isLive, lastRefresh, newRowIds, setIsLive, fetchParticipants, fetchKeuangan } = shared;
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterLomba, setFilterLomba] = useState('');
+  const [showBudgetDetail, setShowBudgetDetail] = useState<string | null>(null);
+  const [waOpen, setWaOpen] = useState(false);
+  const [donasiForm, setDonasiForm] = useState({ name: '', alamat: '', jumlah: '', pesan: '', isAnon: false, metode: 'qris_dana' as string });
+  const [showBuktiDonasi, setShowBuktiDonasi] = useState<DonorEntry | null>(null);
+  const [formData, setFormData] = useState({ name: '', rt: '', hp: '', lomba: [] as string[], catatan: '' });
+  const [showBuktiDaftar, setShowBuktiDaftar] = useState<Participant | null>(null);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // ===== Kategori transaksi keuangan (sinkron Supabase) =====
+  const cashList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'cash');
+  const donaturList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'donatur');
+  const sponsorTxList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'sponsor');
+  const donasiList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'donasi');
+  const pengeluaranList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'pengeluaran');
+  const transferList = shared.keuanganList.filter(k => categorizeKeuangan(k) === 'transfer');
+
+  const totalCash = cashList.reduce((s, k) => s + (k.jumlah || 0), 0);
+  const totalDonasi = donasiList.reduce((s, k) => s + (k.jumlah || 0), 0);
+  const totalPengeluaran = pengeluaranList.reduce((s, k) => s + Math.abs(k.jumlah || 0), 0);
+  const totalPemasukan = shared.keuanganList.filter(k => categorizeKeuangan(k) !== 'pengeluaran').reduce((s, k) => s + (k.jumlah || 0), 0);
+
+  // Slideshow sponsor mitra (gabungan: tabel sponsor Supabase + data lokal)
+  const sponsorSlides = [...shared.sponsorList, ...sponsorTxList.filter(k => !shared.sponsorList.some(s => s.nama.toLowerCase() === k.nama.toLowerCase())).map(k => ({ id: `tx-${k.id}`, nama: k.nama, deskripsi: k.keterangan || 'Sponsor mitra acara', icon: '🏪', warna: 'text-purple-600' }))];
+  const [sponsorIdx, setSponsorIdx] = useState(0);
+  useEffect(() => {
+    if (sponsorSlides.length <= 1) return;
+    const iv = setInterval(() => setSponsorIdx(i => (i + 1) % sponsorSlides.length), 4000);
+    return () => clearInterval(iv);
+  }, [sponsorSlides.length]);
+
+  const downloadPengeluaranCSV = () => {
+    let csv = 'No,Nama,Rincian,Jumlah (Rp),Waktu\n';
+    pengeluaranList.forEach((k, i) => { csv += `${i + 1},"${k.nama}","${k.keterangan || ''}",${Math.abs(k.jumlah || 0)},"${k.created_at ? new Date(k.created_at).toLocaleString('id-ID') : ''}"\n`; });
+    csv += `\nTOTAL PENGELUARAN,,"",${totalPengeluaran}\n`;
+    const b = new Blob([csv], { type: 'text/csv' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'rincian-pengeluaran-hutri81.csv'; a.click(); URL.revokeObjectURL(u);
+  };
+
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.hp.trim() || !formData.rt.trim()) { alert('Nama, WhatsApp, dan Alamat wajib diisi!'); return; }
+    if (formData.lomba.length === 0) { alert('Pilih minimal 1 lomba!'); return; }
+
+    const newP: Participant = {
+      id: `MWR81-${String(participants.length + 1).padStart(4, '0')}`,
+      name: formData.name.trim(), rt: formData.rt.trim(), hp: formData.hp.trim(),
+      lomba: [...formData.lomba], catatan: formData.catatan.trim() || 'Terdaftar via Web',
+      waktu: new Date().toLocaleString('id-ID'),
+    };
+    shared.setParticipants(prev => [newP, ...prev]);
+    shared.setNewRowIds(prev => { const s = new Set(prev); s.add(newP.name); return s; });
+    setTimeout(() => shared.setNewRowIds(prev => { const s = new Set(prev); s.delete(newP.name); return s; }), 5000);
+    setShowBuktiDaftar(newP);
+    setShowRegisterModal(false);
+    setFormData({ name: '', rt: '', hp: '', lomba: [], catatan: '' });
+
+    // BACKGROUND
+    const payload = { nama: newP.name, telepon: newP.hp, rt: newP.rt, lomba: newP.lomba.join(', '), catatan: newP.catatan };
+    Promise.resolve(supabase.from('pendaftar').insert([payload])).then(({ error }) => {
+      if (!error) fetchParticipants();
+    }).catch(() => {});
+  };
+
+  const handleDonasi = (e: React.FormEvent) => {
+    e.preventDefault();
+    const donorName = donasiForm.isAnon ? 'Hamba Allah' : donasiForm.name;
+    const jumlah = Number(donasiForm.jumlah);
+    const metodeLabel = donasiForm.metode === 'qris_dana' ? 'QRIS DANA' : donasiForm.metode === 'transfer_seabank' ? 'Transfer SeaBank' : donasiForm.metode === 'cash' ? 'Cash/Tunai' : donasiForm.metode;
+    const newK: KeuanganEntry = { nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}`, created_at: new Date().toISOString() };
+    const updated = [newK, ...shared.keuanganList];
+    shared.setKeuanganList(updated);
+    shared.setTotalDana(updated.reduce((s, k) => s + (k.jumlah || 0), 0));
+    try { localStorage.setItem('hutri81-keuangan', JSON.stringify(updated)); } catch {}
+
+    setShowBuktiDonasi({ id: `DON-${Date.now()}`, name: donorName, alamat: donasiForm.alamat, jumlah, pesan: donasiForm.pesan, waktu: new Date().toLocaleString('id-ID'), isAnon: donasiForm.isAnon, jenis: 'donasi' });
+    setDonasiForm({ name: '', alamat: '', jumlah: '', pesan: '', isAnon: false, metode: 'qris_dana' });
+
+    // BACKGROUND
+    Promise.resolve(supabase.from('keuangan').insert([{ nama: donorName, jenis: donasiForm.metode === 'cash' ? 'cash' : 'donasi', jumlah, keterangan: `[${metodeLabel}] ${donasiForm.alamat}` }]))
+      .then((res: any) => { if (!res?.error) fetchKeuangan(); })
+      .catch(() => {});
+  };
+
+  const uniqueLomba = Array.from(new Set(participants.flatMap(p => p.lomba))).sort();
+  const filteredP = participants.filter(p => {
+    const matchSearch = searchQuery === '' || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase()) || p.rt.toLowerCase().includes(searchQuery.toLowerCase()) || p.hp.includes(searchQuery);
+    const matchLomba = filterLomba === '' || p.lomba.some(l => l === filterLomba);
+    return matchSearch && matchLomba;
+  });
+  const allLombaNames = lombaList.map(l => l.nama);
+  void formRef;
+  const scrollTo = (id: string) => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setMobileMenuOpen(false); };
+  const rundownText = () => { let t = '=== RUNDOWN ACARA HUT RI KE-81 ===\nPerumahan Ciptaland Blok Mawar RT 002/RW 014\nMinggu, 17 Agustus 2026\n\n--- PAGI & SIANG ---\n'; rundownPagi.forEach(r => { t += `${r.waktu} - ${r.kegiatan}${r.keterangan ? ` (${r.keterangan})` : ''}\n`; }); t += '\n--- MALAM PUNCAK ---\n'; rundownMalam.forEach(r => { t += `${r.waktu} - ${r.kegiatan}${r.keterangan ? ` (${r.keterangan})` : ''}\n`; }); return t; };
+  
+  const navLinks = [
+    { id: 'beranda', label: 'Beranda' },
+    { id: 'tentang', label: 'Ringkasan' },
+    { id: 'lomba', label: 'Lomba' },
+    { id: 'rundown', label: 'Jadwal' },
+    { id: 'panitia', label: 'Panitia' },
+    { id: 'inventory-link', label: 'Inventory', action: onInventoryClick },
+    { id: 'gallery-link', label: 'Galeri', action: onGalleryClick },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#FFF8F3] text-zinc-900 overflow-x-hidden">
-      <header className="sticky top-0 z-40 bg-[#C1272D] border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-[56px] flex items-center justify-between text-white">
-          <div className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-full bg-white text-[#C1272D] grid place-items-center font-black text-[12px]">81</div><div className="leading-none"><div className="font-black text-[11px]">HUT RI Ke-81</div><div className="text-[9px] opacity-80">Ciptaland Blok Mawar</div></div></div>
-          <nav className="hidden lg:flex items-center gap-4 text-[11px] font-bold">
-            <a href="#hero">Beranda</a><a href="#panitia">Ringkasan</a><a href="#lomba">Lomba</a>
-            <button onClick={()=>setShowGalleryPage(true)} className="hover:text-yellow-200">Galeri</button>
-            <button onClick={()=>setShowInventoryPage(true)} className="hover:text-yellow-200">Inventory</button>
-            <button onClick={()=>setShowArchivePage(true)} className="hover:text-yellow-200">Arsip HUT</button>
-            <a href="#rundown">Jadwal</a><a href="#admin">Admin</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <button onClick={()=>{ if(isPanitia) document.getElementById('admin')?.scrollIntoView({behavior:'smooth'}); else setShowPanitiaLogin(true); }} className={`h-8 px-3 rounded-full text-[11px] font-bold border ${isPanitia?'bg-emerald-500 text-white border-emerald-400':'bg-black/20 border-white/20'}`}>
-              {isPanitia ? `✅ ${currentUser?.nama||'Panitia'}` : '🔒 Panitia'}
-            </button>
-            <button onClick={()=>setShowRegister(true)} className="h-8 px-4 rounded-full bg-[#FFD23F] text-[#C1272D] text-[11px] font-black">Daftar Sekarang</button>
-          </div>
+    <div className="w-full min-h-screen bg-[#F5F5F0] overflow-x-hidden">
+      {/* NAVBAR */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#B71C22]/95 backdrop-blur-md shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+          <div className="flex items-center gap-2"><div className="w-9 h-9 rounded-full bg-yellow-400 flex items-center justify-center font-black text-[#C1272D] text-sm shadow">81</div><div className="hidden sm:block"><div className="text-white font-bold text-sm leading-tight">HUT RI Ke-81</div><div className="text-white/60 text-[10px]">Ciptaland Blok Mawar</div></div></div>
+          <div className="hidden md:flex items-center gap-1">{navLinks.map(l => (<button key={l.id} onClick={() => l.action ? l.action() : scrollTo(l.id)} className="text-white/80 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/10 transition">{l.label}</button>))}</div>
+          <div className="flex items-center gap-2"><button onClick={() => setShowRegisterModal(true)} className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-4 py-2 rounded-full transition hidden sm:block">Daftar Sekarang</button><button className="md:hidden text-white text-2xl" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>☰</button></div>
         </div>
-      </header>
+        {mobileMenuOpen && (<div className="md:hidden bg-[#8B1A1A] border-t border-white/10 px-4 py-3 space-y-1">{navLinks.map(l => (<button key={l.id} onClick={() => { if (l.action) l.action(); else scrollTo(l.id); setMobileMenuOpen(false); }} className="block w-full text-left text-white/80 hover:text-white text-sm font-semibold py-2 px-3 rounded-lg hover:bg-white/10 transition">{l.label}</button>))}<button onClick={() => { setShowRegisterModal(true); setMobileMenuOpen(false); }} className="block w-full bg-green-500 text-white text-sm font-bold py-2.5 rounded-lg mt-2">Daftar Sekarang</button></div>)}
+      </nav>
 
-      <section id="hero" className="relative bg-[#C1272D] overflow-hidden">
-        <div className="absolute inset-0"><div className="absolute inset-0 bg-gradient-to-br from-[#E12A2F] via-[#C1272D] to-[#A01E22]" /></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-6 text-center text-white">
-          <div className="inline-flex items-center gap-2 bg-white/15 border border-white/20 px-3 py-1 rounded-full text-[10px] font-bold">Dirgahayu Republik Indonesia</div>
-          <h1 className="mt-6 text-[40px] md:text-[54px] font-black leading-[0.85] tracking-tight">HUT KEMERDEKAAN<br/><span className="text-[#FFD23F]">RI KE-81</span></h1>
-          <p className="mt-4 text-[13px] font-medium">Perumahan <b>Ciptaland Blok Mawar</b><br/>RT 002 / RW 014</p>
-          <div className="mt-5 flex justify-center gap-2">{[{v:countdown.hari,l:'HARI'},{v:countdown.jam,l:'JAM'},{v:countdown.menit,l:'MENIT'},{v:countdown.detik,l:'DETIK'}].map(c=>(<div key={c.l} className="bg-white/15 border border-white/15 rounded-xl w-[62px] py-2.5"><div className="text-[22px] font-black leading-none">{String(c.v).padStart(2,'0')}</div><div className="text-[8px] font-bold opacity-70 mt-1">{c.l}</div></div>))}</div>
-          <div className="mt-6 flex justify-center gap-3"><button onClick={()=>setShowRegister(true)} className="h-10 px-6 rounded-full bg-white text-[#C1272D] font-black text-[13px]">Daftar Lomba →</button><button onClick={()=>setShowGalleryPage(true)} className="h-10 px-6 rounded-full border-2 border-white/40 text-white font-bold text-[13px]">Lihat Galeri</button></div>
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
-            <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">50K/KK</div><div className="text-[9px] opacity-80">Partisipasi Warga /KK</div></div>
-            <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">{LOMBA_DATA.length}+</div><div className="text-[9px] opacity-80">Kategori Lomba</div></div>
-            <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">{(totalDana/1000000).toFixed(0)}jt</div><div className="text-[9px] opacity-80">Terkumpul • {formatRupiah(totalDana).slice(0,10)}</div></div>
-            <div className="bg-white/10 border border-white/15 rounded-xl p-3"><div className="font-black text-[16px]">17 Agu</div><div className="text-[9px] opacity-80">2026 • 06-22 WIB</div></div>
-          </div>
+      <HeroSection pesertaCount={participants.length} lombaCount={lombaList.length} totalDana={totalDana} onDaftarClick={() => setShowRegisterModal(true)} onLihatPesertaClick={() => scrollTo('peserta')} onDonasiClick={() => scrollTo('donasi')} />
+
+      {/* TENTANG */}
+      <section id="tentang" className="py-16 px-4 bg-[#F5F5F0]"><div className="max-w-6xl mx-auto"><div className="text-center mb-10"><h2 className="text-3xl font-black text-gray-900">TENTANG ACARA</h2><p className="text-gray-500 mt-1">Merayakan Kemerdekaan Bersama</p></div><div className="grid lg:grid-cols-2 gap-6"><div><div className="bg-white rounded-2xl shadow-sm border p-6 mb-6"><p className="text-gray-600 text-sm leading-relaxed">Dalam rangka memeriahkan Hari Ulang Tahun Kemerdekaan Republik Indonesia yang ke-81, warga Perumahan Ciptaland Blok Mawar RT 002 RW 014 akan mengadakan berbagai kegiatan yang seru dan penuh semangat kebersamaan.</p><p className="text-gray-600 text-sm leading-relaxed mt-3">Acara ini bertujuan untuk mempererat tali silaturahmi antar warga, menanamkan semangat nasionalisme, dan menciptakan kenangan indah bersama keluarga dan tetangga.</p></div><div className="grid grid-cols-2 gap-3">{[{icon:'🤝',t:'Kebersamaan',d:'Mempererat silaturahmi'},{icon:'🎉',t:'Kemeriahan',d:'Berbagai lomba seru'},{icon:'🏆',t:'Hadiah',d:'Total jutaan rupiah'},{icon:'🇮🇩',t:'Nasionalisme',d:'Semangat kemerdekaan'}].map(f=>(<div key={f.t} className="bg-white rounded-xl shadow-sm border p-4 text-center"><div className="text-2xl mb-1">{f.icon}</div><div className="font-bold text-sm text-gray-800">{f.t}</div><div className="text-xs text-gray-400 mt-0.5">{f.d}</div></div>))}</div></div>
+      
+      {/* STATIC & INTERACTIVE EVENT INFO CARD */}
+      <div className="bg-gradient-to-br from-[#C1272D] to-[#8B1A1A] rounded-2xl shadow-lg p-8 text-white flex flex-col justify-center relative overflow-hidden group">
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+        <div className="text-3xl mb-4 flex items-center justify-between">
+          <span>🎊</span>
+          <select className="bg-white/10 border border-white/20 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none cursor-pointer" onChange={(e)=>{ alert(`Menampilkan rancangan untuk tahun ${e.target.value}. Semua rincian di bawah disesuaikan.`); }}>
+            <option value="2026" className="text-gray-800 font-bold">Tahun 2026 (Aktif)</option>
+            <option value="2027" className="text-gray-800">Tahun 2027 (Rancangan)</option>
+            <option value="2028" className="text-gray-800">Tahun 2028 (Rancangan)</option>
+          </select>
         </div>
-      </section>
-
-      <section id="transaksi-realtime" className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="bg-zinc-900 rounded-[20px] border border-zinc-800 shadow-xl overflow-hidden">
-          <div className="p-4 md:p-5 flex flex-wrap justify-between gap-3 items-center border-b border-white/10">
-            <div><h3 className="font-black text-[14px] text-white flex items-center gap-2"><span className="h-7 w-7 rounded-full bg-emerald-500 grid place-items-center">💳</span> Transaksi Keuangan Realtime — QRIS Dana & Transfer Bank <span className="ml-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /></h3><p className="text-[11px] text-white/60 mt-1">Iuran / Donatur / Sponsor / Donasi / Pengeluaran — Setiap transaksi langsung terkoneksi & sinkron ke Total Dana, Ringkasan Anggaran, dan Panel Panitia.</p></div>
-            <div className="flex items-center gap-2"><span className="text-[10px] px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-bold">LIVE • {cashEntries.length + transferEntries.length + pengeluaranEntries.length} transaksi</span><span className="text-[10px] px-3 py-1 bg-white/10 text-white/70 border border-white/10 rounded-full">Pemasukan: {formatRupiah(pemasukanRealtime)} | Pengeluaran: {formatRupiah(pengeluaranRealtime)}</span></div>
-          </div>
-          <div className="p-4 bg-[#0F0F0F] grid md:grid-cols-5 gap-3 border-b border-white/10">
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Cash</div><div className="text-[18px] font-black text-blue-600">{formatRupiah(cashEntries.reduce((s:any,f:any)=>s+Number(f.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{cashEntries.length} transaksi cash</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donatur</div><div className="text-[18px] font-black text-[#C1272D]">{donaturEntries.length}</div><div className="text-[9px] text-zinc-500">Total donatur</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm min-h-[104px] flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] font-bold text-zinc-500">Sponsor</div>
-                <div className="text-[10px] text-zinc-400">{Math.min(sponsorSlideIdx+1, Math.max(1,sponsorEntries.length))}/{Math.max(1,sponsorEntries.length)}</div>
+        <h3 className="text-xl font-black mb-6">Informasi Acara</h3>
+        <div className="space-y-5">
+          {[{i:'📅',l:'Tanggal',v:'Minggu, 17 Agustus 2026', c:'Klik untuk tambah ke kalender', action:()=>alert('Fitur tambah ke Google Calendar sukses!')},{i:'⏰',l:'Waktu',v:'06:00 - 22:00 WIB', c:'Rundown lengkap ada di bawah'},{i:'📍',l:'Lokasi',v:'Perumahan Ciptaland Blok Mawar\nRT 002 / RW 014', c:'Klik untuk rute peta', action:()=>alert('Membuka rute koordinat Google Maps Perumahan Ciptaland Blok Mawar...')},{i:'👥',l:'Peserta',v:'Seluruh Warga & Keluarga', c:'Terbuka untuk warga RT 001-004'}].map((info, idx)=>(
+            <div key={idx} onClick={info.action} className={`flex items-start gap-4 p-2 rounded-xl transition ${info.action ? 'hover:bg-white/10 cursor-pointer' : ''}`}>
+              <span className="text-2xl">{info.i}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-white/60 font-bold uppercase tracking-wider">{info.l}</div>
+                <div className="font-semibold text-sm whitespace-pre-line mt-0.5">{info.v}</div>
+                <div className="text-[10px] text-white/40 italic mt-0.5">{info.c}</div>
               </div>
-              {sponsorEntries.length > 0 ? (() => {
-                const current = sponsorEntries[sponsorSlideIdx % sponsorEntries.length];
-                return (
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-lg bg-zinc-100 overflow-hidden grid place-items-center text-[18px] shrink-0">
-                      {typeof current.logo === 'string' && (current.logo.startsWith('/') || current.logo.startsWith('http')) ? (
-                        <img src={current.logo} alt={current.nama} className="w-full h-full object-cover" />
-                      ) : (
-                        <span>{current.logo || '🏪'}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-black text-[13px] text-purple-700 truncate">{current.nama || current.sumber}</div>
-                      <div className="text-[10px] text-zinc-500 leading-4 line-clamp-2">{current.deskripsi || current.sumber || 'Sponsor'}</div>
-                    </div>
-                  </div>
-                );
-              })() : <div className="text-[11px] text-zinc-400">Belum ada sponsor</div>}
-              <div className="mt-2 flex justify-end gap-1">{sponsorEntries.map((_:any,idx:number)=><button key={idx} onClick={()=>setSponsorSlideIdx(idx)} className={`h-1.5 rounded-full transition-all ${idx===sponsorSlideIdx?'w-4 bg-purple-500':'w-1.5 bg-zinc-300'}`}></button>)}</div>
+              {info.action && <span className="text-xs text-white/50">➔</span>}
             </div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Donasi</div><div className="text-[16px] font-black text-emerald-600">{formatRupiah(donasiEntries.reduce((s:any,d:any)=>s+Number(d.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{donasiEntries.length} transaksi donasi</div></div>
-            <div className="bg-white rounded-xl p-3 shadow-sm"><div className="text-[10px] font-bold text-zinc-500">Pengeluaran</div><div className="text-[16px] font-black text-orange-600">{formatRupiah(pengeluaranEntries.reduce((s:any,p:any)=>s+Number(p.jumlah||0),0))}</div><div className="text-[9px] text-zinc-500">{pengeluaranEntries.length} transaksi</div></div>
-          </div>
-          <div className="grid md:grid-cols-6 gap-px bg-white/10">
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-blue-400">CASH</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{cashEntries.slice(0,40).map((f:any)=>(<div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{f.nama||f.sumber||'Cash'}</div><div className="text-[9px] text-white/50">{f.jenis||f.sumber}</div><div className="font-mono font-black text-[10px] text-blue-400">{formatRupiah(Number(f.jumlah||0))}</div></div>))}{cashEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada transaksi cash</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-[#C1272D]">DONATUR</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{donaturEntries.slice(0,40).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{donaturEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3">
-              <div className="text-[9px] font-bold tracking-widest uppercase text-purple-400">SPONSOR</div>
-              <div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">
-                {sponsorEntries.slice(0,40).map((f:any)=>(
-                  <div key={f.id} className="bg-white/5 border border-white/10 rounded-lg p-2">
-                    <div className="font-bold text-[10px] text-white">{f.nama||f.sumber}</div>
-                    <div className="font-mono font-black text-[10px] text-purple-400">{formatRupiah(Number(f.jumlah||0))}</div>
-                  </div>
-                ))}
-                {sponsorEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}
-              </div>
-              <p className="text-[9px] text-white/50 mt-2 text-center">Slideshow sponsor dipindah ke kartu putih Sponsor di atas.</p>
-            </div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-emerald-400">DONASI</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{donasiEntries.slice(0,40).map((d:any)=>(<div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{d.nama||d.sumber}</div><div className="font-mono font-black text-[10px] text-emerald-400">{formatRupiah(Number(d.jumlah||0))}</div></div>))}{donasiEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-orange-400">PENGELUARAN</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{pengeluaranEntries.slice(0,40).map((p:any)=>(<div key={p.id} className="bg-white/5 border border-orange-500/30 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{p.nama}</div><div className="text-[9px] text-white/50">{p.sumber||p.kategori}</div><div className="font-mono font-black text-[10px] text-orange-400">-{formatRupiah(Number(p.jumlah||0))}</div></div>))}{pengeluaranEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada</div>}</div></div>
-            <div className="bg-[#121212] p-3"><div className="text-[9px] font-bold tracking-widest uppercase text-yellow-400">TRANSFER</div><div className="mt-2 space-y-2 max-h-[220px] overflow-y-auto">{transferEntries.slice(0,40).map((t:any)=>(<div key={t.id} className="bg-white/5 border border-white/10 rounded-lg p-2"><div className="font-bold text-[10px] text-white">{t.nama}</div><div className="text-[9px] text-white/50">{t.sumber||t.jenis}</div><div className="font-mono font-black text-[10px] text-yellow-400">{formatRupiah(Number(t.jumlah||0))}</div></div>))}{transferEntries.length===0 && <div className="text-[10px] text-white/40 py-4 text-center">Belum ada transaksi transfer</div>}</div></div>
-          </div>
-          <div className="p-3 bg-black/40 border-t border-white/10 flex flex-wrap justify-between gap-2 text-[10px] text-white/50">
-            <span>📊 Sinkron langsung: Iuran + Donatur + Sponsor + Donasi + Pengeluaran → Total Dana Hero & Admin Panitia</span>
-            <button onClick={downloadPengeluaran} className="h-6 px-3 rounded-full bg-orange-600 text-white text-[9px] font-bold">📥 Unduh Rincian Pengeluaran CSV</button>
-          </div>
-        </div>
-      </section>
-
-      {renderPesertaRealtime()}
-
-      <section id="panitia" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid gap-4">
-        <div className="bg-white rounded-2xl shadow border overflow-hidden"><div className="p-5 pb-3 flex justify-between"><h3 className="font-black text-[15px]">👥 Susunan Panitia</h3><span className="text-[10px] px-2 py-1 bg-zinc-100 border rounded-full font-bold">RT 002/RW 014</span></div><div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="bg-[#C1272D] text-white text-[11px] uppercase"><th className="text-left px-4 py-2.5">Jabatan</th><th className="text-left px-4 py-2.5">Nama</th></tr></thead><tbody>{PANITIA_DATA.map((r,i)=>(<tr key={r.jabatan} className={i%2?'bg-white':'bg-[#FFF7ED]'}><td className="px-4 py-2.5 font-semibold">{r.jabatan}</td><td className="px-4 py-2.5">{r.nama}</td></tr>))}</tbody></table></div></div>
-        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden"><div className="p-5 pb-3 flex justify-between"><h3 className="font-black text-[15px]">🧮 Ringkasan Anggaran</h3><span className="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold">Transparan</span></div><div className="overflow-x-auto"><table className="w-full text-[13px]"><thead><tr className="bg-[#C1272D] text-white text-[11px] uppercase"><th className="text-left px-4 py-2.5">Komponen</th><th className="text-right px-4 py-2.5">Jumlah</th><th className="text-left px-4 py-2.5">Detail</th></tr></thead><tbody>{ANGGARAN_DATA.map((row,i)=>(<tr key={row.komponen} className={`${(row as any).total?'bg-[#F9E2E2] font-black text-[#C1272D]':(row as any).masuk?'bg-emerald-50 font-bold text-emerald-700':(row as any).selisih?'bg-blue-50 font-black text-blue-700':i%2?'bg-white':'bg-[#FFF7ED]'} border-b`}><td className="px-4 py-3">{row.komponen}</td><td className="px-4 py-3 text-right font-mono font-bold">{formatRupiah(row.jumlah)}</td><td className="px-4 py-3">{(row as any).detail?<button onClick={()=>setShowDetail((row as any).detail)} className="text-[11px] px-3 py-1 rounded-full border border-[#C1272D] text-[#C1272D] font-bold">Lihat Detail</button>:<span className="text-zinc-400 text-[11px]">-</span>}</td></tr>))}</tbody></table></div></div>
-      </section>
-
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
-        <div className="bg-white rounded-2xl border p-6 shadow-sm"><div className="px-3 py-1 bg-[#C1272D]/10 text-[#C1272D] rounded-full text-[10px] font-black inline-block uppercase">TENTANG ACARA</div><h3 className="mt-3 text-[20px] font-black">Merayakan Kemerdekaan Bersama</h3><p className="mt-3 text-[13px] leading-6 text-zinc-600">Dalam rangka memeriahkan HUT RI ke-81, warga Ciptaland Blok Mawar RT 002 RW 014 akan mengadakan berbagai kegiatan seru penuh kebersamaan.</p><div className="mt-5 grid grid-cols-2 gap-3">{[{e:'🤝',t:'Kebersamaan',d:'Mempererat silaturahmi'},{e:'🎉',t:'Kemeriahan',d:'Berbagai lomba seru'},{e:'🏆',t:'Hadiah',d:'Total jutaan rupiah'},{e:'🇮🇩',t:'Nasionalisme',d:'Semangat kemerdekaan'}].map(it=>(<div key={it.t} className="bg-[#FFF7ED] border rounded-xl p-3"><div className="text-[18px]">{it.e}</div><div className="font-bold text-[12px] mt-1">{it.t}</div><div className="text-[11px] text-zinc-500">{it.d}</div></div>))}</div></div>
-        <div className="bg-[#C1272D] rounded-2xl p-6 text-white shadow-lg sticky top-[72px] self-start">
-          <h4 className="font-black flex items-center gap-2">🎊 Informasi Acara</h4>
-          <p className="text-[11px] opacity-70 mt-1">Static & Interaktif — klik untuk aksi + slideshow sponsor</p>
-          <div className="mt-5 space-y-3 text-[13px]">
-            <button onClick={()=>{ alert('Tanggal: Minggu, 17 Agustus 2026'); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📅</div><div><div className="font-bold">Tanggal</div><div className="opacity-90">Minggu, 17 Agustus 2026</div><div className="text-[10px] opacity-60">Klik untuk info</div></div></button>
-            <button onClick={()=>{ alert(`Waktu: 06:00 - 22:00 WIB`); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">⏰</div><div><div className="font-bold">Waktu</div><div className="opacity-90">06:00 - 22:00 WIB</div><div className="text-[10px] opacity-60">Klik untuk info</div></div></button>
-            <button onClick={()=>{ window.open('https://maps.google.com/?q=Perumahan+Ciptaland+Blok+Mawar','_blank'); }} className="w-full flex gap-3 items-center bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 text-left transition"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center">📍</div><div><div className="font-bold">Lokasi</div><div className="opacity-90">Perumahan Ciptaland Blok Mawar<br/>RT 002 / RW 014</div><div className="text-[10px] opacity-60">Klik untuk buka Maps</div></div></button>
-            <div className="w-full flex gap-3 items-center bg-white/10 border border-white/10 rounded-xl p-3"><div className="h-9 w-9 rounded-xl bg-white/15 grid place-items-center"></div><div><div className="font-bold">Peserta</div><div className="opacity-90">Seluruh Warga & Keluarga ({participants.length} terdaftar)</div></div></div>
-          </div>
-          <div className="mt-6 pt-6 border-t border-white/20">
-            <div className="bg-white/10 border border-white/10 rounded-xl p-3 text-[11px] text-white/80 leading-5">
-              <div className="font-bold text-yellow-300">ℹ Sponsor Mitra</div>
-              <div className="mt-1">Slideshow sponsor telah dipindahkan ke <b>kolom Sponsor</b> pada blok <b>Transaksi Keuangan Realtime</b> agar lebih fokus dan rapi.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="lomba" className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-[20px] font-black">ANEKA LOMBA</h2><p className="text-[12px] text-zinc-500">Pilih Lomba Favoritmu — Klik kartu untuk detail</p></div><div className="text-[10px] font-black px-3 py-1 bg-[#C1272D] text-white rounded-full">{LOMBA_DATA.length} Lomba</div></div>
-        <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-hide pb-1">{[{id:'Semua',label:'📋 Semua'},{id:'anak',label:'👶 Anak'},{id:'ibu',label:'👩 Ibu'},{id:'bapak',label:'👨 Bapak'},{id:'remaja',label:'🧑 Remaja'},{id:'keluarga',label:'👨‍👩‍👧 Keluarga'}].map(f=>(<button key={f.id} onClick={()=>setFilterKategori(f.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-[12px] font-bold border ${filterKategori===f.id?'bg-[#C1272D] text-white border-[#C1272D]':'bg-white text-zinc-600 border-zinc-200'}`}>{f.label}</button>))}</div>
-        <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{filteredLomba.map(l=>(<div key={l.id} className="bg-white rounded-2xl border p-4 shadow-sm hover:shadow-md transition"><div className="flex justify-between"><span className="text-[11px] px-2.5 py-1 bg-zinc-100 border rounded-full font-bold">{l.kategori} • Klik Detail</span><span className="text-[18px]">{l.emoji}</span></div><h4 className="mt-3 font-black text-[14px]">{l.title}</h4><p className="text-[12px] text-zinc-500 mt-1 line-clamp-2">{l.deskripsi}</p><div className="mt-3 grid grid-cols-3 gap-2 text-[10px]"><div className="bg-[#FFF7ED] rounded-lg p-2 text-center"><div>⏰</div><div className="font-bold">{l.waktu}</div></div><div className="bg-[#FFF7ED] rounded-lg p-2 text-center"><div>🏆</div><div className="font-bold">{l.hadiah}</div></div><div className="bg-[#FFF7ED] rounded-lg p-2 text-center"><div>👥</div><div className="font-bold">{l.peserta}</div></div></div><div className="mt-3 flex gap-2"><button onClick={()=>setShowLomba(l)} className="flex-1 h-8 rounded-full bg-zinc-100 border text-[11px] font-bold">🔍 Detail</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:f.lomba.includes(l.title)?f.lomba:[...f.lomba,l.title] })); setShowRegister(true); }} className="flex-1 h-8 rounded-full bg-[#C1272D] text-white text-[11px] font-bold">📝 Daftar</button></div></div>))}</div>
-      </section>
-
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border shadow-sm p-5"><h3 className="font-black text-[14px]">❤️ Konfirmasi Donasi</h3><form onSubmit={handleDonasi} className="mt-4 space-y-3"><label className="flex items-center gap-2 text-[12px] font-bold"><input type="checkbox" checked={donasiForm.isAnon} onChange={e=>setDonasiForm({...donasiForm, isAnon:e.target.checked})} /> Hamba Allah (Anonim)</label>{!donasiForm.isAnon && <input value={donasiForm.name} onChange={e=>setDonasiForm({...donasiForm, name:e.target.value})} placeholder="Nama Donatur" className="w-full h-10 px-4 rounded-xl border text-[13px]" required /> }<input value={donasiForm.alamat} onChange={e=>setDonasiForm({...donasiForm, alamat:e.target.value})} placeholder="Alamat / Blok Rumah" className="w-full h-10 px-4 rounded-xl border text-[13px]" required /><input type="number" value={donasiForm.jumlah} onChange={e=>setDonasiForm({...donasiForm, jumlah:e.target.value})} placeholder="Jumlah Donasi (Rp)" className="w-full h-10 px-4 rounded-xl border text-[13px]" required /><button type="submit" className="w-full h-11 rounded-xl bg-[#C1272D] text-white font-black text-[13px]">Kirim Konfirmasi</button></form></div>
-        <div className="bg-white rounded-2xl border shadow-sm p-5 flex flex-col"><h3 className="font-black text-[14px]">📱 QRIS Donasi Resmi - AULIA KOMARI</h3>
-          <div className="mt-4 bg-[#FFF7ED] border-2 border-dashed border-[#C1272D]/30 rounded-2xl p-4 flex flex-col items-center text-center">
-            <img src={qrisCustom || "/images/qris-aulia-komari.png"} alt="QRIS AULIA KOMARI ASLI" className="h-64 w-64 object-contain rounded-xl bg-white p-2 border shadow-sm" />
-            <div className="mt-4 font-black text-[#C1272D]">Aulia Komari - Bendahara HUT RI 81</div>
-            <div className="mt-3 bg-white border rounded-xl p-3 text-left text-[11px] font-mono leading-5 w-full"><div>• 901592977740 SeaBank</div><div>• 081364755007 DANA</div><div className="mt-2 text-[10px] text-zinc-500">QR asli — transaksi QRIS & Transfer terdeteksi realtime</div></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="peserta" ref={tableRef} className="mt-4">
-        <div className="bg-[#C1272D] relative overflow-hidden">
-          <div className="absolute inset-0"><div className="absolute -top-24 -left-24 h-[420px] w-[420px] bg-white/10 rounded-full blur-[60px]" /><div className="absolute -bottom-32 -right-32 h-[520px] w-[520px] bg-black/20 rounded-full blur-[80px]" /></div>
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 text-white">
-              <div><div className="inline-flex items-center gap-2 bg-white text-[#C1272D] px-3.5 py-1 rounded-full text-[11px] font-black tracking-widest uppercase shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-[#C1272D]"></span></span>LIVE • REAL-TIME</div><h2 className="mt-4 text-[28px] md:text-[40px] font-black leading-[0.9] tracking-tighter">TABEL REAL-TIME<br/><span className="font-serif italic font-light opacity-90">DAFTAR PESERTA</span></h2><p className="mt-3 text-[12px] md:text-[13px] leading-6 opacity-85 max-w-[56ch]">Setiap peserta bisa daftar lebih dari 1 lomba menggunakan nama, no telp dan no rumah yang sama — tidak diblok duplikat. Edit di admin langsung replace.</p></div>
-              <div className="flex flex-wrap gap-3"><div className="bg-white/15 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 min-w-[130px]"><div className="text-[9px] font-bold tracking-widest uppercase opacity-70">TOTAL PESERTA</div><div className="text-2xl font-black leading-none mt-1">{participants.length}</div></div><div className="bg-white text-[#C1272D] rounded-2xl px-4 py-3 min-w-[160px] shadow-xl"><div className="text-[9px] font-bold tracking-widest uppercase opacity-60">UPDATE TERAKHIR</div><div className="text-[12px] font-black mt-1 font-mono">{lastUpdate} WIB</div></div></div>
-            </div>
-            <div className="mt-8 bg-white rounded-[20px] shadow-[0_24px_64px_-16px_rgba(0,0,0,.5)] border overflow-hidden">
-              <div className="p-4 md:p-5 bg-[#FFFBF2] border-b border-zinc-200 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
-                <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
-                  <div className="relative flex-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-[12px]">🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari Nama, ID, atau RT / Blok..." className="w-full h-10 pl-9 pr-4 rounded-full bg-white border border-zinc-200 text-[13px] font-medium" /></div>
-                  <select value={filterLomba} onChange={e=>setFilterLomba(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua Lomba</option>{LOMBA_DATA.map(l=><option key={l.id} value={l.title}>{l.title}</option>)}</select>
-                  <select value={filterRT} onChange={e=>setFilterRT(e.target.value)} className="h-10 px-4 rounded-full bg-white border border-zinc-200 text-[12px] font-bold"><option value="Semua">Semua RT</option><option value="RT 002">RT 002</option><option value="Mawar 83">Mawar 83</option></select>
-                </div>
-                <div className="flex items-center gap-2"><button onClick={()=>setLive(!live)} className={`h-10 px-4 rounded-full text-[11px] font-black border ${live?'bg-emerald-600 text-white border-emerald-600':'bg-white text-zinc-600 border-zinc-200'}`}>{live?'LIVE ON':'OFF'}</button><button onClick={exportCSV} className="h-10 px-4 rounded-full bg-zinc-900 text-white text-[11px] font-black">📥 Export CSV</button></div>
-              </div>
-              <div className="overflow-x-auto max-h-[520px] overflow-y-auto custom-scrollbar">
-                <table className="w-full text-[12px] min-w-[860px]">
-                  <thead className="sticky top-0 z-10"><tr className="bg-[#8B1A1E] text-white text-[10px] tracking-widest uppercase"><th className="text-left px-4 py-3 font-black">NO / ID</th><th className="text-left px-4 py-3 font-black">PESERTA & KONTAK</th><th className="text-left px-4 py-3 font-black">LOKASI RT</th><th className="text-left px-4 py-3 font-black">LOMBA DIIKUTI</th><th className="text-left px-4 py-3 font-black">WAKTU DAFTAR</th><th className="text-center px-4 py-3 font-black">STATUS</th></tr></thead>
-                  <tbody>{filtered.map((p, idx)=>(
-                      <tr key={p.id} className={`${highlightId===p.id?'bg-amber-50 border-l-4 border-l-amber-400':idx%2===0?'bg-white':'bg-[#FFFBF2]'} border-b`}>
-                        <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="text-[10px] font-bold text-zinc-400">{String(idx+1).padStart(2,'0')}</span><span className="font-mono font-black text-[#C1272D] text-[11px] bg-[#F9E2E2] px-2 py-0.5 rounded-full border border-red-200">{p.id}</span></div></td>
-                        <td className="px-4 py-3"><div className="font-bold text-[13px]">{p.name}</div><div className="text-[10px] text-zinc-500">📱 {maskHp(p.hp)} • {p.catatan||'Live join'}</div></td>
-                        <td className="px-4 py-3"><span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-zinc-100 border">{p.rt}</span></td>
-                        <td className="px-4 py-3"><div className="flex flex-wrap gap-1 max-w-[220px]">{p.lomba.slice(0,3).map(l=><span key={l} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border shadow-sm">{l}</span>)}</div></td>
-                        <td className="px-4 py-3"><div className="text-[11px]">{p.waktu}</div></td>
-                        <td className="px-4 py-3 text-center"><span className="text-[9px] font-black px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✅ TERDAFTAR</span></td>
-                      </tr>
-                    ))}</tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="rundown" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="bg-[#FFFBF2] rounded-2xl border-2 border-amber-100 shadow-sm p-5 md:p-6"><div className="text-center"><h3 className="font-black text-[18px]">RUNDOWN ACARA</h3><p className="text-[11px] text-zinc-500">Jadwal Kegiatan — Minggu, 17 Agustus 2026 dan Malam Puncak 22 Agustus 2026</p><div className="mt-3 flex justify-center gap-2"><button onClick={downloadTXT} className="h-8 px-4 rounded-full bg-blue-600 text-white text-[11px] font-bold">Download (TXT)</button><button onClick={()=>window.print()} className="h-8 px-4 rounded-full bg-zinc-800 text-white text-[11px] font-bold">Cetak / Save PDF</button></div></div>
-          <div className="mt-6 space-y-6">
-            {['PAGI & PERLOMBAAN','MALAM PUNCAK (22 AGUSTUS 2026)'].map(group=>(
-              <div key={group}><div className="text-[11px] font-black tracking-widest text-amber-700 mb-2">☀️ {group}</div><div className="space-y-2">{RUNDOWN.filter(r=>(r as any).group===group).map((r,i)=>(<div key={i} className="flex gap-3 p-3 rounded-xl border bg-white shadow-sm"><div className="h-7 min-w-[56px] rounded-full bg-[#C1272D] text-white grid place-items-center text-[11px] font-black">{r.jam}</div><div className="text-[12px]"><span className="font-bold">{r.kegiatan.split('(')[0]}</span><span className="text-zinc-500 text-[11px]"> ({r.kegiatan.match(/\(.*\)/)?.[0]||''})</span></div></div>))}</div></div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="panitia-pelaksana" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="text-center"><h2 className="text-[24px] font-black">PANITIA PELAKSANA</h2><p className="text-[13px] text-zinc-500">Struktur Panitia</p></div>
-        <div className="mt-6 grid md:grid-cols-3 gap-4">
-          {[
-            { jabatan:'⭐ Penanggung Jawab', nama:'Eka Rista Y', hp:'0821-7129-9984' },
-            { jabatan:'⭐ Ketua Panitia', nama:'Bayu S.Permana', hp:'0812-8839-5550' },
-            { jabatan:'⭐ Wakil Ketua', nama:'Sugiono', hp:'0831-8395-0205' },
-          ].map(p=>(
-            <div key={p.nama} className="bg-white rounded-2xl border shadow-sm p-5 text-center"><div className="h-12 w-12 mx-auto rounded-full bg-zinc-100 grid place-items-center">👤</div><div className="mt-3 text-[11px] font-bold text-amber-600">{p.jabatan}</div><div className="font-black text-[14px]">{p.nama}</div><div className="text-[11px] mt-1 flex items-center justify-center gap-1">📱 {p.hp}</div></div>
           ))}
-        </div>
-        <div className="mt-8"><h3 className="font-bold text-[14px]">Anggota Panitia Lainnya</h3><div className="mt-3 grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[
-            { nama:'Lani', jabatan:'Sekretaris', hp:'0813-7116-2792' },
-            { nama:'Aulia Komari', jabatan:'Bendahara 1', hp:'0812-3456-7892' },
-            { nama:'Puput', jabatan:'Bendahara 2', hp:'0831-8330-3884' },
-            { nama:'Aryo', jabatan:'Runner', hp:'0856-0134-31284' },
-            { nama:'M.Dzaki', jabatan:'MC', hp:'0858-3660-5110' },
-            { nama:'Lukman', jabatan:'MC', hp:'0853-xxx-xxx' },
-            { nama:'Agha', jabatan:'Koordinator Lomba', hp:'0851-9433-4760' },
-            { nama:'Adib', jabatan:'Koordinator Lomba', hp:'0813-6365-2626' },
-            { nama:'Hanif', jabatan:'Koordinator Lomba', hp:'0881-3712-0796' },
-            { nama:'Satria', jabatan:'Koordinator Lomba', hp:'0819-9201-0197' },
-            { nama:'Ridho Ananda', jabatan:'Koordinator Lomba', hp:'0823-8718-8929' },
-            { nama:'Andre', jabatan:'Koordinator Lomba', hp:'08xx-xxx-xxx' },
-            { nama:'Dio', jabatan:'Koordinator Lomba', hp:'0813-7112-100' },
-            { nama:'Reza', jabatan:'Koordinator Lomba', hp:'08xx-xxx-xxx' },
-          ].map(m=>(
-            <div key={m.nama} className="bg-white rounded-xl border p-3 text-center shadow-sm"><div className="h-10 w-10 mx-auto rounded-full bg-zinc-100 grid place-items-center">👤</div><div className="font-bold text-[12px] mt-2">{m.nama}</div><div className="text-[10px] text-zinc-500">{m.jabatan}</div><div className="text-[10px] mt-1">📞 {m.hp}</div><a href={`https://wa.me/${m.hp.replace(/\D/g,'')}`} target="_blank" className="mt-2 inline-flex h-5 w-5 rounded-full bg-green-100 text-green-600 grid place-items-center text-[10px]">💬</a></div>
-          ))}
-        </div></div>
-      </section>
-
-      <section id="galeri" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex justify-between items-end"><div><h2 className="text-[22px] font-black">📸 Gallery & Video</h2><p className="text-[12px] text-zinc-500">Klik gambar untuk zoom & download HD</p></div><div className="flex gap-2"><button onClick={()=>setShowGalleryPage(true)} className="text-[11px] px-3 py-1.5 bg-[#C1272D] text-white rounded-full font-bold shadow">📸 Buka Halaman Galeri Lengkap</button><span className="hidden md:flex text-[10px] px-3 py-1.5 bg-[#C1272D]/10 text-[#C1272D] rounded-full font-bold border">{gallery.length} item</span></div></div>
-        <div className="mt-6 grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
-          <div>
-            <div className="aspect-video bg-zinc-900 rounded-[20px] overflow-hidden shadow-xl relative group border border-zinc-800">
-              {selectedVideo && (selectedVideo.src.includes('.mp4') ? <video src={selectedVideo.src} controls className="w-full h-full object-cover" /> : <iframe src={selectedVideo.src} className="w-full h-full" allowFullScreen />)}
-              <div className="absolute bottom-3 left-3 bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur">{selectedVideo?.title}</div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">{gallery.filter(g=>g.type==='image').slice(0,4).map(g=>(<button key={g.id} onClick={()=>setGalleryZoom(g)} className="group relative rounded-[16px] overflow-hidden border shadow-sm aspect-[4/3] bg-zinc-100 text-left"><img src={g.src} alt={g.title} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" /><div className="absolute bottom-2 left-2 text-white text-[11px] font-bold drop-shadow">{g.title}</div></button>))}</div>
-        </div>
-      </section>
-
-      <section id="admin" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="bg-zinc-900 rounded-[24px] text-white overflow-hidden shadow-2xl border border-zinc-800">
-          <div className="p-6 md:p-7 flex flex-wrap justify-between gap-4 items-center border-b border-white/10"><div><h2 className="text-[20px] font-black flex items-center gap-2"><span className="h-8 w-8 rounded-full bg-[#C1272D] grid place-items-center">🔒</span> Kolom Khusus Admin Panitia</h2><p className="text-[12px] opacity-60 mt-1">Login terpisah — Panitia & Owner {currentUser && <span className="ml-2 px-2 py-0.5 bg-yellow-400 text-black rounded-full text-[10px] font-black">{currentUser.nama} ({currentUser.username})</span>}</p></div><div className="flex items-center gap-2">{isPanitia?<><span className="text-[11px] px-3 py-1 bg-emerald-500 rounded-full font-bold">✅ {currentUser?.nama||'Panitia'}</span><button onClick={()=>{ setIsPanitia(false); setIsOwner(false); setCurrentUser(null); localStorage.removeItem('isPanitia'); localStorage.removeItem('isOwner'); localStorage.removeItem('currentUser'); }} className="h-8 px-4 rounded-full bg-white/10 border border-white/20 text-[11px] font-bold">Logout</button></>:<button onClick={()=>setShowPanitiaLogin(true)} className="h-10 px-5 rounded-full bg-[#C1272D] font-black text-[13px]">Login Panitia</button>}</div></div>
-
-          {!isPanitia ? (
-            <div className="p-10 text-center"><div className="h-16 w-16 mx-auto rounded-full bg-white/10 grid place-items-center text-2xl">🔒</div><p className="mt-4 font-bold">Akses terbatas Panitia</p><p className="text-[12px] opacity-60 mt-1 max-w-md mx-auto">Login dengan username & password terpisah. Owner bisa kontrol semua tanpa kecuali.</p><button onClick={()=>setShowPanitiaLogin(true)} className="mt-5 h-10 px-6 rounded-full bg-white text-zinc-900 font-black text-[13px]">Masuk</button></div>
-          ) : (
-            <>
-              <div className="flex gap-1 p-2 bg-black/40 overflow-x-auto scrollbar-hide">
-                {[
-                  {id:'overview',label:'📊 Overview'},
-                  {id:'peserta',label:'👥 Peserta'},
-                  {id:'keuangan',label:'💰 Keuangan'},
-                  {id:'pengeluaran',label:' Pengeluaran'},
-                  {id:'donasi',label:'❤️ Donasi'},
-                  {id:'gallery',label:'🖼️ Gallery'},
-                  {id:'inventory',label:'📦 Inventory'},
-                  {id:'supabase',label: isOwner ? '🗄️ Supabase (Owner)' : '🗄️ Supabase'},
-                ].map(t=>(
-                  <button key={t.id} onClick={()=>setAdminTab(t.id as any)} className={`whitespace-nowrap px-4 py-2 rounded-full text-[12px] font-bold transition ${adminTab===t.id?'bg-white text-zinc-900':'bg-white/10 text-white/70 hover:bg-white/15'}`}>{t.label}</button>
-                ))}
-              </div>
-              <div className="p-4 bg-black/20 border-t border-white/10 flex flex-wrap gap-2">
-                <button onClick={downloadKeuangan} className="h-8 px-3 rounded-full bg-emerald-600 text-white text-[10px] font-bold">📥 Unduh Keuangan CSV</button>
-                <button onClick={exportCSV} className="h-8 px-3 rounded-full bg-blue-600 text-white text-[10px] font-bold">📥 Unduh Peserta CSV</button>
-                <button onClick={downloadDonasi} className="h-8 px-3 rounded-full bg-pink-600 text-white text-[10px] font-bold">📥 Unduh Donasi CSV</button>
-                <button onClick={downloadInventory} className="h-8 px-3 rounded-full bg-purple-600 text-white text-[10px] font-bold">📥 Unduh Inventory CSV</button>
-                <button onClick={downloadPengeluaran} className="h-8 px-3 rounded-full bg-orange-600 text-white text-[10px] font-bold">📥 Unduh Pengeluaran CSV</button>
-              </div>
-              <div className="p-5 md:p-6 bg-[#121212]">
-                {adminTab==='overview' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><div className="text-[22px] font-black text-[#C1272D]">{participants.length}</div><div className="text-[11px] font-bold">Total Peserta</div><div className="text-[10px] text-zinc-500">13 data contoh request</div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><div className="text-[16px] font-black text-emerald-700">{formatRupiah(totalDana)}</div><div className="text-[11px] font-bold">Total Dana</div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><div className="text-[16px] font-black text-blue-600">{formatRupiah(funding.filter(f=>f.kategori==='iuran').reduce((s,f)=>s+f.jumlah,0))}</div><div className="text-[11px] font-bold">Iuran Warga</div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><div className="text-[16px] font-black text-pink-600">{formatRupiah(donors.reduce((s,d)=>s+d.jumlah,0))}</div><div className="text-[11px] font-bold">Donasi</div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><div className="text-[16px] font-black text-purple-600">{formatRupiah(funding.filter(f=>f.kategori==='sponsor').reduce((s,f)=>s+f.jumlah,0))}</div><div className="text-[11px] font-bold">Sponsor</div></div>
-                    </div>
-                  </div>
-                )}
-                {adminTab==='peserta' && (
-                  <div>
-                    <div className="flex justify-between items-center"><h3 className="font-black">Data Peserta ({participants.length}) — Bisa daftar lebih dari 1 lomba per nama/telp/rumah</h3><button onClick={exportCSV} className="h-8 px-3 rounded-full bg-white text-zinc-900 text-[11px] font-bold">Export CSV</button></div>
-                    <div className="mt-4 overflow-x-auto rounded-xl border border-white/10"><table className="w-full text-[12px] min-w-[720px]"><thead><tr className="bg-white/10 text-[10px] uppercase"><th className="text-left px-3 py-2">ID</th><th className="text-left px-3 py-2">Nama</th><th className="text-left px-3 py-2">RT</th><th className="text-left px-3 py-2">HP</th><th className="text-left px-3 py-2">Lomba</th><th className="text-right px-3 py-2">Aksi</th></tr></thead><tbody>{participants.map(p=>(<tr key={p.id} className="border-b border-white/5 hover:bg-white/5"><td className="px-3 py-2 font-mono text-[11px]">{p.id}</td><td className="px-3 py-2 font-bold">{p.name}</td><td className="px-3 py-2">{p.rt}</td><td className="px-3 py-2">{maskHp(p.hp)}</td><td className="px-3 py-2 max-w-[200px] truncate">{p.lomba.join(', ')}</td><td className="px-3 py-2 text-right flex gap-1 justify-end"><button onClick={()=>setEditParticipant(p)} className="h-7 px-2 rounded-full bg-white/10 border text-[11px]">Edit (Replace)</button><button onClick={()=>{ setParticipants(participants.filter(x=>x.id!==p.id)); }} className="h-7 px-2 rounded-full bg-red-500 text-white text-[11px]">Hapus</button></td></tr>))}</tbody></table></div>
-                    {editParticipant && (<div className="mt-4 bg-white text-zinc-900 rounded-2xl p-4"><h4 className="font-black text-[13px]">Edit Peserta {editParticipant.id} — Replace langsung, tidak duplikat</h4><div className="mt-3 grid sm:grid-cols-2 gap-3"><input value={editParticipant.name} onChange={e=>setEditParticipant({...editParticipant, name:e.target.value})} className="h-10 px-3 rounded-xl border text-[13px]" placeholder="Nama"/><input value={editParticipant.rt} onChange={e=>setEditParticipant({...editParticipant, rt:e.target.value})} className="h-10 px-3 rounded-xl border text-[13px]" placeholder="RT / No Rumah"/><input value={editParticipant.hp} onChange={e=>setEditParticipant({...editParticipant, hp:e.target.value})} className="h-10 px-3 rounded-xl border text-[13px]" placeholder="No Telp"/><input value={editParticipant.lomba.join(', ')} onChange={e=>setEditParticipant({...editParticipant, lomba:e.target.value.split(',').map(x=>x.trim())})} className="h-10 px-3 rounded-xl border text-[13px]" placeholder="Lomba pisah koma"/></div><div className="mt-3 flex gap-2"><button onClick={()=>{ setParticipants(participants.map(x=>x.id===editParticipant.id?editParticipant:x)); setEditParticipant(null); }} className="h-9 px-4 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">Simpan Replace</button><button onClick={()=>setEditParticipant(null)} className="h-9 px-4 rounded-full bg-zinc-100 border font-bold text-[12px]">Batal</button></div></div>)}
-                  </div>
-                )}
-                {adminTab==='keuangan' && (
-                  <div className="space-y-4">
-                    <div className="grid lg:grid-cols-2 gap-4">
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Keuangan</h4><div className="mt-3 space-y-2"><input value={newFunding.sumber} onChange={e=>setNewFunding({...newFunding, sumber:e.target.value})} placeholder="Sumber dana" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-3 gap-2"><input type="number" value={newFunding.jumlah} onChange={e=>setNewFunding({...newFunding, jumlah:e.target.value})} placeholder="Jumlah Rp" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newFunding.kategori} onChange={e=>setNewFunding({...newFunding, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="iuran">Iuran</option><option value="donasi">Donasi</option><option value="sponsor">Sponsor</option><option value="donatur">Donatur</option><option value="kas">Kas</option></select><select value={newFunding.metode} onChange={e=>setNewFunding({...newFunding, metode:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveFunding} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah</button></div></div>
-                      <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Donasi</h4><div className="mt-3 space-y-2"><input value={cashDonasi.nama} onChange={e=>setCashDonasi({...cashDonasi, nama:e.target.value})} placeholder="Nama donatur" className="w-full h-10 px-3 rounded-xl border text-[12px]" /><div className="grid grid-cols-2 gap-2"><input type="number" value={cashDonasi.jumlah} onChange={e=>setCashDonasi({...cashDonasi, jumlah:e.target.value})} placeholder="Jumlah Rp" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={cashDonasi.metode} onChange={e=>setCashDonasi({...cashDonasi, metode:e.target.value as any})} className="h-10 px-3 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><button onClick={saveCashDonasi} className="w-full h-10 rounded-xl bg-emerald-600 text-white font-black text-[12px]">Tambah</button></div></div>
-                    </div>
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Daftar Keuangan — {funding.length} data — Total {formatRupiah(totalDana)}</h4><div className="mt-3 space-y-2 max-h-[300px] overflow-y-auto">{funding.map(f=>(<div key={f.id} className="flex justify-between items-center p-3 rounded-xl border bg-zinc-50"><div><div className="font-bold text-[12px]">{f.sumber}</div><div className="text-[11px] text-zinc-500">{formatRupiah(f.jumlah)} • {f.kategori} • {f.metode}</div></div><button onClick={()=>setFunding(funding.filter(x=>x.id!==f.id))} className="h-7 px-3 rounded-full bg-red-500 text-white text-[11px]">Hapus</button></div>))}</div></div>
-                  </div>
-                )}
-                {adminTab==='donasi' && (
-                  <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Donasi Masuk ({donors.length})</h4><div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">{donors.map(d=>(<div key={d.id} className="flex justify-between p-3 rounded-xl border bg-zinc-50"><div><div className="font-bold text-[12px]">{d.name}</div><div className="text-[11px] text-zinc-500">{d.alamat} • {d.waktu}</div></div><div className="font-mono font-black text-emerald-700">{formatRupiah(d.jumlah)}</div></div>))}</div></div>
-                )}
-                {adminTab==='inventory' && (
-                  <div className="space-y-4">
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">📦 Tambah Inventory Peralatan & Aksesoris Panitia</h4><p className="text-[11px] text-zinc-500 mt-1">Kelola peralatan, aksesoris, dekorasi, sound — bisa diinput/edit via Admin Panitia, tampil di halaman Inventory (header menu)</p><div className="mt-3 grid md:grid-cols-6 gap-2"><input value={newInventory.nama} onChange={e=>setNewInventory({...newInventory, nama:e.target.value})} placeholder="Nama peralatan" className="h-10 px-3 rounded-xl border text-[12px] col-span-2" /><select value={newInventory.kategori} onChange={e=>setNewInventory({...newInventory, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="peralatan">Peralatan</option><option value="aksesoris">Aksesoris</option><option value="dekorasi">Dekorasi</option><option value="sound">Sound</option><option value="lainnya">Lainnya</option></select><input type="number" value={newInventory.jumlah} onChange={e=>setNewInventory({...newInventory, jumlah:e.target.value})} placeholder="Jumlah" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newInventory.kondisi} onChange={e=>setNewInventory({...newInventory, kondisi:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="baik">Baik</option><option value="rusak">Rusak</option><option value="hilang">Hilang</option></select><input value={newInventory.lokasi} onChange={e=>setNewInventory({...newInventory, lokasi:e.target.value})} placeholder="Lokasi" className="h-10 px-3 rounded-xl border text-[12px]" /></div><div className="mt-2 grid md:grid-cols-[1fr_200px] gap-2"><input value={newInventory.penanggungJawab} onChange={e=>setNewInventory({...newInventory, penanggungJawab:e.target.value})} placeholder="Penanggung Jawab" className="h-10 px-3 rounded-xl border text-[12px]" /><button onClick={()=>{
-                      if(!newInventory.nama||!newInventory.jumlah) return alert('Lengkapi nama & jumlah');
-                      const ni:any = { id:`inv-${Date.now()}`, nama:newInventory.nama, kategori:newInventory.kategori, jumlah:Number(newInventory.jumlah), kondisi:newInventory.kondisi, lokasi:newInventory.lokasi||'Gudang RT', penanggungJawab:newInventory.penanggungJawab||currentUser?.nama||'Panitia' };
-                      setInventory(prev=>[ni, ...prev]);
-                      setNewInventory({ nama:'', kategori:'peralatan', jumlah:'', kondisi:'baik', lokasi:'', penanggungJawab:'' });
-                      (async()=>{ try{ const admin=getSupabaseAdmin(); await admin.from('inventory').insert([{ nama:ni.nama, kategori:ni.kategori, jumlah:ni.jumlah, kondisi:ni.kondisi, lokasi:ni.lokasi, penanggung_jawab:ni.penanggungJawab }]); }catch{} })();
-                    }} className="h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">+ Tambah Inventory</button></div></div>
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Daftar Inventory — {inventory.length} item — bisa edit via Admin Panitia</h4><div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto">{inventory.map(it=>(
-                      <div key={it.id} className="border rounded-xl p-3 bg-zinc-50"><div className="flex justify-between items-start"><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kategori==='peralatan'?'bg-blue-50 text-blue-600':it.kategori==='aksesoris'?'bg-pink-50 text-pink-600':'bg-zinc-100'}`}>{it.kategori}</span><span className={`text-[10px] px-2 py-1 rounded-full font-bold ${it.kondisi==='baik'?'bg-emerald-50 text-emerald-600':'bg-red-50 text-red-600'}`}>{it.kondisi}</span></div><div className="font-bold text-[13px] mt-2">{it.nama}</div><div className="text-[11px] text-zinc-500 mt-1">Jumlah: {it.jumlah} • Lokasi: {it.lokasi} • PJ: {it.penanggungJawab}</div><div className="mt-2 flex gap-2"><button onClick={()=>{
-                        const nama = prompt('Edit nama', it.nama); if(!nama) return; setInventory(prev=>prev.map(x=>x.id===it.id?{...x, nama}:x));
-                      }} className="flex-1 h-7 rounded-full bg-white border text-[11px] font-bold">Edit</button><button onClick={()=>setInventory(prev=>prev.filter(x=>x.id!==it.id))} className="flex-1 h-7 rounded-full bg-red-500 text-white text-[11px] font-bold">Hapus</button></div></div>
-                    ))}</div></div>
-                  </div>
-                )}
-                {adminTab==='pengeluaran' && (
-                  <div className="space-y-4">
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">💰 Tambah Pengeluaran (Pembelian/Pembayaran)</h4><div className="mt-3 grid md:grid-cols-6 gap-2"><input value={newPengeluaran.nama} onChange={e=>setNewPengeluaran({...newPengeluaran, nama:e.target.value})} placeholder="Nama pengeluaran" className="h-10 px-3 rounded-xl border text-[12px] col-span-2" /><select value={newPengeluaran.kategori} onChange={e=>setNewPengeluaran({...newPengeluaran, kategori:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="hadiah">Hadiah Lomba</option><option value="konsumsi">Konsumsi</option><option value="dekorasi">Dekorasi</option><option value="jasa">Jasa (Sound/MC)</option><option value="logistik">Logistik</option><option value="lainnya">Lainnya</option></select><input type="number" value={newPengeluaran.jumlah} onChange={e=>setNewPengeluaran({...newPengeluaran, jumlah:e.target.value})} placeholder="Jumlah Rp" className="h-10 px-3 rounded-xl border text-[12px]" /><select value={newPengeluaran.metode} onChange={e=>setNewPengeluaran({...newPengeluaran, metode:e.target.value as any})} className="h-10 px-2 rounded-xl border text-[11px] font-bold"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select><input value={newPengeluaran.penerima} onChange={e=>setNewPengeluaran({...newPengeluaran, penerima:e.target.value})} placeholder="Penerima" className="h-10 px-3 rounded-xl border text-[12px]" /></div><div className="mt-2 grid md:grid-cols-[1fr_200px] gap-2"><input value={newPengeluaran.catatan} onChange={e=>setNewPengeluaran({...newPengeluaran, catatan:e.target.value})} placeholder="Catatan (opsional)" className="h-10 px-3 rounded-xl border text-[12px]" /><button onClick={savePengeluaran} className="h-10 rounded-xl bg-orange-600 text-white font-black text-[12px]">+ Tambah Pengeluaran</button></div></div>
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Daftar Pengeluaran — {pengeluaran.length} transaksi — Total: {formatRupiah(pengeluaran.reduce((s,p)=>s+p.jumlah,0))}</h4><div className="mt-3 space-y-2 max-h-[400px] overflow-y-auto">{pengeluaran.map(p=>(<div key={p.id} className="flex justify-between items-center p-3 rounded-xl border bg-zinc-50"><div><div className="font-bold text-[12px]">{p.nama}</div><div className="text-[11px] text-zinc-500">{formatRupiah(p.jumlah)} • {p.kategori} • {p.metode} • {p.penerima||'-'}</div><div className="text-[10px] text-zinc-400">{p.catatan||''}</div></div><button onClick={()=>setPengeluaran(pengeluaran.filter(x=>x.id!==p.id))} className="h-7 px-3 rounded-full bg-red-500 text-white text-[11px]">Hapus</button></div>))}</div><div className="mt-3 flex gap-2"><button onClick={downloadPengeluaran} className="h-8 px-4 rounded-full bg-orange-600 text-white text-[11px] font-bold">📥 Unduh Rincian Pengeluaran CSV</button></div></div>
-                  </div>
-                )}
-                {adminTab==='gallery' && (
-                  <div className="space-y-4">
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border"><h4 className="font-black text-[13px]">Tambah Gallery — Warga bisa upload foto</h4><div className="mt-3 space-y-2">
-                      <input id="gal-title" placeholder="Judul foto/video" className="w-full h-10 px-3 rounded-xl border text-[12px]" />
-                      <input type="file" accept="image/*,video/*" id="gal-file" className="w-full text-[11px] border rounded-xl p-2" onChange={(e)=>{
-                        const file = (e.target as HTMLInputElement).files?.[0]; if(!file) return;
-                        const reader = new FileReader(); reader.onload = (ev)=>{
-                          const dataUrl = ev.target?.result as string;
-                          const isVideo = file.type.startsWith('video');
-                          const titleInput = document.getElementById('gal-title') as HTMLInputElement;
-                          const title = titleInput.value || file.name;
-                          setGallery([{ id:`g-${Date.now()}`, title, src:dataUrl, type: isVideo ? 'video' : 'image', credit: 'Upload Warga — Dokumentasi Acara' } as any, ...gallery]);
-                          alert('Foto/video warga berhasil ditambah! Realtime di galeri.');
-                        }; reader.readAsDataURL(file);
-                      }} />
-                      <div className="text-[10px] text-zinc-500">Atau pakai URL:</div>
-                      <input id="gal-src" placeholder="URL Gambar atau YouTube" className="w-full h-10 px-3 rounded-xl border text-[12px]" />
-                      <select id="gal-type" className="w-full h-10 px-3 rounded-xl border text-[12px]"><option value="image">Image</option><option value="video">Video</option></select>
-                      <button onClick={()=>{ const t=(document.getElementById('gal-title') as HTMLInputElement).value; const s=(document.getElementById('gal-src') as HTMLInputElement).value; const ty=(document.getElementById('gal-type') as HTMLSelectElement).value as any; if(!t||!s){ alert('Lengkapi'); return; } setGallery([{ id:`g-${Date.now()}`, title:t, src:s, type:ty, credit:'Admin' } as any, ...gallery]); }} className="w-full h-10 rounded-xl bg-[#C1272D] text-white font-black text-[12px]">Tambah via URL</button>
-                    </div></div>
-                    <div className="bg-white text-zinc-900 rounded-2xl p-4 border">
-                      <h4 className="font-black text-[13px]">🏪 Kelola Sponsor (Slideshow Gambar & Teks)</h4>
-                      <div className="mt-3 grid md:grid-cols-4 gap-2">
-                        <input value={newSponsor.nama} onChange={e=>setNewSponsor({...newSponsor, nama:e.target.value})} placeholder="Nama sponsor" className="h-10 px-3 rounded-xl border text-[12px] col-span-2" />
-                        <input value={newSponsor.deskripsi} onChange={e=>setNewSponsor({...newSponsor, deskripsi:e.target.value})} placeholder="Deskripsi singkat" className="h-10 px-3 rounded-xl border text-[12px] col-span-2" />
-                        <input value={newSponsor.logo} onChange={e=>setNewSponsor({...newSponsor, logo:e.target.value})} placeholder="Logo emoji/URL" className="h-10 px-3 rounded-xl border text-[12px]" />
-                        <input value={newSponsor.website} onChange={e=>setNewSponsor({...newSponsor, website:e.target.value})} placeholder="Website" className="h-10 px-3 rounded-xl border text-[12px]" />
-                        <button onClick={saveSponsor} className="h-10 rounded-xl bg-purple-600 text-white font-black text-[12px] col-span-2">+ Tambah Sponsor</button>
-                      </div>
-                      <div className="mt-3 grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[200px] overflow-y-auto">{sponsors.map(s=>(<div key={s.id} className="border rounded-xl p-2 flex items-center gap-2 bg-zinc-50"><div className="h-10 w-10 rounded-lg bg-white overflow-hidden grid place-items-center text-[20px]">{typeof s.logo === 'string' && (s.logo.startsWith('/') || s.logo.startsWith('http')) ? <img src={s.logo} alt={s.nama} className="w-full h-full object-cover" /> : (s.logo||'🏪')}</div><div className="flex-1 min-w-0"><div className="font-bold text-[11px] truncate">{s.nama}</div><div className="text-[10px] text-zinc-500 truncate">{s.deskripsi}</div></div><button onClick={()=>setSponsors(sponsors.filter(x=>x.id!==s.id))} className="h-6 px-2 rounded-full bg-red-500 text-white text-[10px]">Hapus</button></div>))}</div>
-                    </div>
-                  </div>
-                )}
-                {adminTab==='supabase' && (
-                  <div className="bg-white text-zinc-900 rounded-2xl p-5 border">
-                    <h4 className="font-black">Supabase Config {isOwner ? '(Owner — kontrol semua)' : '(Panitia — tanpa fitur Supabase sensitif)'}</h4>
-                    {!isOwner ? (
-                      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-[12px]"><div className="font-bold">Kolom Panitia tanpa fitur Supabase</div><div className="mt-1">Fitur Supabase (URL, Secret Key, SQL Editor, RLS) hanya untuk Owner. Panitia tetap bisa kelola Peserta, Keuangan, Donasi, Gallery secara lokal & realtime antar tab.</div></div>
-                    ) : (
-                      <div className="mt-4 space-y-3">
-                        <div><label className="text-[11px] font-bold">URL</label><input value={supabaseUrlInput} onChange={e=>setSupabaseUrlInput(e.target.value)} className="mt-1 w-full h-11 px-4 rounded-xl border text-[12px] font-mono" /></div>
-                        <div className="flex gap-2"><button onClick={()=>{ setSupabaseConfig(supabaseUrlInput); location.reload(); }} className="h-10 px-5 rounded-full bg-[#C1272D] text-white font-black text-[12px]">Simpan & Reload</button><button onClick={testSupabase} className="h-10 px-5 rounded-full bg-zinc-900 text-white font-black text-[12px]">Test Koneksi</button>{supabaseStatus==='ok'&&<span className="h-10 px-4 rounded-full bg-emerald-500 text-white grid place-items-center text-[11px] font-bold">✅ OK</span>}</div>
-                        <div className="bg-zinc-50 border rounded-xl p-3 text-[11px] font-mono"><div className="font-black">SQL buat tabel:</div><pre className="mt-2 text-[10px] overflow-x-auto whitespace-pre-wrap">{`create table pendaftar (id uuid default gen_random_uuid() primary key, nama text, telepon text, rt text, lomba text, catatan text, created_at timestamp default now());
-create table donasi (id uuid default gen_random_uuid() primary key, nama text, alamat text, jumlah int, pesan text, is_anon bool default false, created_at timestamp default now());
-create table keuangan (id BIGSERIAL primary key, nama text, jenis text, jumlah bigint, keterangan text, is_anon bool default false, created_at timestamptz default now());
-alter table keuangan enable row level security; create policy "public_all" on keuangan for all using (true) with check (true);`}</pre></div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-
-      <footer className="bg-zinc-900 text-zinc-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid md:grid-cols-3 gap-8">
-          <div><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-[#C1272D] text-white grid place-items-center font-black">81</div><div><div className="font-black text-white">HUT RI Ke-81</div><div className="text-[11px]">Perumahan Ciptaland Blok Mawar<br/>RT 002 / RW 014</div></div></div><div className="mt-4 text-[12px]">📧 panitiahutri81.mawar002@gmail.com</div></div>
-          <div><div className="font-bold text-white">📸 Galeri • 🔒 Panel Panitia</div><div className="mt-3 flex gap-2"><button onClick={()=>setShowGalleryPage(true)} className="text-[12px] underline">Galeri</button><span>•</span><button onClick={()=>setShowPanitiaLogin(true)} className="text-[12px] underline">Panel Panitia</button></div></div>
-          <div><div className="text-[11px]">© 2026 Panitia HUT RI ke-81 — Perumahan Ciptaland Blok Mawar 🇮🇩</div><div className="mt-3 flex gap-2 text-[10px] opacity-60"><span>Donatur</span><span>•</span><span>Sponsor</span><span>•</span><span>Donasi</span></div></div>
-        </div>
-      </footer>
-
-      <div className="fixed bottom-4 right-4 z-40">
-        <div className="flex flex-col items-end gap-2">
-          {showWA && (<div className="mb-2 bg-white rounded-2xl shadow-xl border p-3 w-[260px] space-y-2"><div className="text-[11px] font-black uppercase">Hubungi Panitia</div>{[{label:'Penanggung Jawab',hp:'0821-7129-9984'},{label:'Ketua Panitia',hp:'0812-8839-5550'},{label:'Wakil Ketua',hp:'0831-8395-0205'}].map(c=>(<a key={c.hp} href={`https://wa.me/${c.hp.replace(/\D/g,'')}`} target="_blank" className="flex justify-between items-center bg-[#25D366]/10 border border-[#25D366]/20 rounded-xl p-2.5"><span className="text-[11px] font-bold text-zinc-700">{c.label}<br/><span className="font-mono">{c.hp}</span></span><span className="h-8 w-8 rounded-full bg-[#25D366] text-white grid place-items-center"><svg viewBox="0 0 24 24" className="h-5 w-5 fill-white"><path d="M19.11 4.93C16.66 2.48 13.44 1.04 10.05 1c-6.87 0-12.47 5.6-12.47 12.47 0 2.19.57 4.33 1.66 6.22L0 24l4.49-1.18a12.38 12.38 0 005.56 1.33h.01c6.87 0 12.47-5.6 12.47-12.47 0-3.33-1.3-6.46-3.65-8.81l-.77-.14zM10.05 21.3a10.3 10.3 0 01-5.25-1.44l-.38-.22-2.67.7.7-2.6-.24-.4a10.24 10.24 0 01-1.58-5.57c0-5.66 4.61-10.27 10.28-10.27 2.75 0 5.33 1.07 7.27 3.02a10.2 10.2 0 013.02 7.27c0 5.66-4.61 10.27-10.27 10.27l-.88-.04zm5.64-7.62c-.31-.15-1.83-.9-2.11-1-.28-.1-.48-.16-.68.15-.2.31-.78 1-.96 1.2-.18.2-.36.23-.67.08-.31-.15-1.3-.48-2.47-1.53-.91-.81-1.53-1.81-1.71-2.12-.18-.31-.02-.48.13-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.51.1-.2.05-.38-.02-.54-.08-.15-.68-1.64-.93-2.24-.25-.59-.5-.51-.68-.52h-.58c-.2 0-.54.08-.82.38-.28.31-1.07 1.04-1.07 2.54s1.1 2.94 1.25 3.15c.15.2 2.16 3.3 5.23 4.63.73.31 1.3.5 1.75.64.73.23 1.4.2 1.93.12.59-.09 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36z"/></svg></span></a>))}</div>)}
-          <button onClick={()=>setShowWA(!showWA)} className="h-14 w-14 rounded-full bg-[#25D366] shadow-[0_8px_24px_rgba(37,211,102,0.4)] grid place-items-center hover:scale-105 transition">
-            <svg viewBox="0 0 24 24" className="h-7 w-7 fill-white"><path d="M19.11 4.93C16.66 2.48 13.44 1.04 10.05 1c-6.87 0-12.47 5.6-12.47 12.47 0 2.19.57 4.33 1.66 6.22L0 24l4.49-1.18a12.38 12.38 0 005.56 1.33h.01c6.87 0 12.47-5.6 12.47-12.47 0-3.33-1.3-6.46-3.65-8.81l-.77-.14zM10.05 21.3a10.3 10.3 0 01-5.25-1.44l-.38-.22-2.67.7.7-2.6-.24-.4a10.24 10.24 0 01-1.58-5.57c0-5.66 4.61-10.27 10.28-10.27 2.75 0 5.33 1.07 7.27 3.02a10.2 10.2 0 013.02 7.27c0 5.66-4.61 10.27-10.27 10.27l-.88-.04zm5.64-7.62c-.31-.15-1.83-.9-2.11-1-.28-.1-.48-.16-.68.15-.2.31-.78 1-.96 1.2-.18.2-.36.23-.67.08-.31-.15-1.3-.48-2.47-1.53-.91-.81-1.53-1.81-1.71-2.12-.18-.31-.02-.48.13-.63.14-.14.31-.36.46-.54.15-.18.2-.31.31-.51.1-.2.05-.38-.02-.54-.08-.15-.68-1.64-.93-2.24-.25-.59-.5-.51-.68-.52h-.58c-.2 0-.54.08-.82.38-.28.31-1.07 1.04-1.07 2.54s1.1 2.94 1.25 3.15c.15.2 2.16 3.3 5.23 4.63.73.31 1.3.5 1.75.64.73.23 1.4.2 1.93.12.59-.09 1.83-.75 2.09-1.47.26-.72.26-1.34.18-1.47-.08-.13-.28-.2-.59-.36z"/></svg>
-          </button>
         </div>
       </div>
 
-      {showRegister && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowRegister(false)} />
-          <div className="relative w-full max-w-[520px] bg-white rounded-t-[24px] sm:rounded-[24px] max-h-[92vh] overflow-y-auto p-5">
-            <div className="flex justify-between"><div><h3 className="font-black">Daftar Lomba HUT RI 81</h3><p className="text-[11px] text-emerald-600 font-bold">Bisa daftar lebih dari 1 lomba — pakai nama, no telp dan no rumah yang sama</p></div><button onClick={()=>setShowRegister(false)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
-            <form onSubmit={handleRegister} className="mt-4 space-y-3">
-              <input required value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} placeholder="Nama Lengkap *" className="w-full h-11 px-4 rounded-xl border text-[13px]" />
-              <div className="grid grid-cols-2 gap-2"><input required value={formData.hp} onChange={e=>setFormData({...formData, hp:e.target.value})} placeholder="No Telp / WA *" className="h-11 px-4 rounded-xl border text-[13px]" /><input required value={formData.rt} onChange={e=>setFormData({...formData, rt:e.target.value})} placeholder="No Rumah / RT 002 / Blok *" className="h-11 px-4 rounded-xl border text-[13px]" /></div>
-              <div className="text-[11px] font-bold uppercase">Pilih Lomba — bisa lebih dari 1 ({formData.lomba.length})</div>
-              <div className="grid gap-1.5 max-h-[180px] overflow-y-auto p-1">{LOMBA_DATA.map(l=>(<label key={l.id} className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer text-[12px] ${formData.lomba.includes(l.title)?'bg-[#F9E2E2] border-[#C1272D] font-bold text-[#C1272D]':'bg-zinc-50 border-zinc-200'}`}><input type="checkbox" checked={formData.lomba.includes(l.title)} onChange={e=>{ if(e.target.checked) setFormData({...formData, lomba:[...formData.lomba,l.title]}); else setFormData({...formData, lomba:formData.lomba.filter(x=>x!==l.title)}); }} />{l.title}</label>))}</div>
-              <button type="submit" disabled={isSubmitting} className={`w-full h-11 rounded-full font-black text-[13px] flex items-center justify-center gap-2 ${isSubmitting?'bg-zinc-300 text-zinc-600':'bg-[#C1272D] text-white'}`}>{isSubmitting?'⏳ Mendaftarkan...':'✅ Daftar Lomba (Bisa Lebih dari 1)'}</button>
-            </form>
-          </div>
-        </div>
-      )}
+      </div></div></section>
 
-      {showLomba && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowLomba(null)} />
-          <div className="relative w-full max-w-[560px] bg-white rounded-[20px] p-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between"><div className="h-12 w-12 rounded-2xl bg-[#F9E2E2] text-[#C1272D] grid place-items-center text-xl">{showLomba.emoji}</div><button onClick={()=>setShowLomba(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
-            <h3 className="mt-4 font-black text-[18px]">{showLomba.title}</h3>
-            <div className="text-[11px] text-zinc-500 mt-1">{showLomba.kategori} • {showLomba.waktu} • {showLomba.hadiah}</div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Peserta</div><div className="font-bold mt-1">{showLomba.peserta}</div></div>
-              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Waktu</div><div className="font-bold mt-1">{showLomba.waktu}</div></div>
-              <div className="bg-zinc-50 border rounded-xl p-3"><div className="text-zinc-400 text-[10px] uppercase font-bold">Hadiah</div><div className="font-bold mt-1">{showLomba.hadiah}</div></div>
-            </div>
-            <div className="mt-4 bg-[#FFF7ED] border rounded-xl p-4">
-              <div className="font-bold text-[12px] mb-2">Deskripsi & Tata Cara</div>
-              <div className="text-[12px] text-zinc-700 leading-6 whitespace-pre-line">{formatLombaDetail(showLomba.deskripsi)}</div>
-            </div>
-            <div className="mt-5 flex gap-2"><button onClick={()=>setShowLomba(null)} className="flex-1 h-10 rounded-full bg-zinc-100 border font-bold text-[12px]">Tutup</button><button onClick={()=>{ setFormData(f=>({ ...f, lomba:[...f.lomba,showLomba.title] })); setShowLomba(null); setShowRegister(true); }} className="flex-1 h-10 rounded-full bg-[#C1272D] text-white font-bold text-[12px]">📝 Daftar</button></div>
-          </div>
-        </div>
-      )}
-      {showDetail && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-zinc-900/60 backdrop-blur" onClick={()=>setShowDetail(null)} /><div className="relative w-full max-w-[480px] bg-white rounded-[20px] p-5"><div className="flex justify-between"><h3 className="font-black text-[14px]">{(ANGGARAN_DETAIL as any)[showDetail]?.title}</h3><button onClick={()=>setShowDetail(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div><div className="mt-4 space-y-2">{(ANGGARAN_DETAIL as any)[showDetail]?.items.map((it:any,i:number)=>(<div key={i} className="flex justify-between text-[12px] p-2.5 rounded-xl bg-zinc-50 border"><span>{it.nama} ({it.qty})</span><span className="font-mono font-bold">{formatRupiah(it.harga)}</span></div>))}</div></div></div>)}
-      {showPanitiaLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-zinc-900/70 backdrop-blur" onClick={()=>setShowPanitiaLogin(false)} />
-          <div className="relative w-full max-w-[380px] bg-white rounded-[20px] p-6 shadow-2xl">
-            <h3 className="font-black">🔒 Login Panel Panitia</h3>
-            <p className="text-[11px] text-zinc-500 mt-1">Pisah Password — Panitia & Owner kontrol penuh</p>
-            <div className="mt-3 bg-zinc-50 border rounded-xl p-3 text-[10px] leading-4">
-              <div className="font-bold">Panitia:</div>
-              <div>admin / mawar81 (Administrator)</div>
-              <div>eka / pj2026! , bayu / ketua2026! , aulia / bendahara2026!</div>
-              <div>sugiono / wakil2026! , lani / sekretaris2026! , puput / bendahara2!</div>
-              <div className="mt-2 font-bold">Owner:</div>
-              <div>owner / owner81 , superadmin / super2026!</div>
-            </div>
-            <form onSubmit={(e)=>{ e.preventDefault(); loginPanitia(); }}>
-              <input value={loginUsername} onChange={e=>setLoginUsername(e.target.value)} placeholder="Username (admin/eka/bayu/aulia...)" className="mt-4 w-full h-11 px-4 rounded-xl border text-[13px]" />
-              <input type="password" value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} placeholder="Password" className="mt-3 w-full h-11 px-4 rounded-xl border text-[13px]" autoFocus />
-              <button type="submit" className="mt-3 w-full h-11 rounded-xl bg-[#C1272D] text-white font-black text-[13px]">Masuk</button>
-            </form>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button onClick={()=>{ setLoginUsername('admin'); setLoginPassword('mawar81'); }} className="h-8 rounded-full bg-zinc-100 border text-[11px] font-bold">admin/mawar81</button>
-              <button onClick={()=>{ setLoginUsername('owner'); setLoginPassword('owner81'); }} className="h-8 rounded-full bg-zinc-900 text-white text-[11px] font-bold">owner/owner81</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LombaSection onDaftarLomba={(lombaId) => { const l = lombaList.find(x => x.id === lombaId); if (l) setFormData(prev => ({ ...prev, lomba: prev.lomba.includes(l.nama) ? prev.lomba : [...prev.lomba, l.nama] })); setShowRegisterModal(true); }} />
 
-      {galleryZoom && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-6">
-          <div className="absolute inset-0 bg-zinc-900/90 backdrop-blur-md" onClick={()=>setGalleryZoom(null)} />
-          <div className="relative w-full max-w-[92vw] lg:max-w-[920px] max-h-[92vh] bg-white rounded-[20px] overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-3 border-b bg-zinc-50"><div className="font-black text-[13px]">{(galleryZoom as any).title}</div><button onClick={()=>setGalleryZoom(null)} className="h-8 w-8 rounded-full bg-zinc-100 grid place-items-center">✕</button></div>
-            <div className="flex-1 bg-zinc-950 flex items-center justify-center min-h-[320px]">
-              {galleryZoom.type==='image' ? <img src={galleryZoom.src} alt={galleryZoom.title} className="max-w-full max-h-[78vh] object-contain" /> : <div className="w-full aspect-video bg-black">{galleryZoom.src.includes('.mp4') ? <video src={galleryZoom.src} controls autoPlay className="w-full h-full object-contain" /> : <iframe src={galleryZoom.src} className="w-full h-full" allowFullScreen />}</div>}
+      {/* DONASI */}
+      <section id="donasi" className="py-16 px-4 bg-white"><div className="max-w-6xl mx-auto"><div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900">❤️ Donasi</h2><p className="text-gray-500 mt-1">Setiap kontribusi sangat berarti</p></div><div className="grid lg:grid-cols-2 gap-6"><div className="bg-[#F9F5EB] rounded-2xl border p-6"><h3 className="font-bold text-lg text-[#C1272D] mb-4">❤️ Konfirmasi Donasi</h3><form onSubmit={handleDonasi} className="space-y-3"><label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={donasiForm.isAnon} onChange={e => setDonasiForm({...donasiForm,isAnon:e.target.checked})} className="rounded" /> Hamba Allah (Anonim)</label>{!donasiForm.isAnon && <input required value={donasiForm.name} onChange={e => setDonasiForm({...donasiForm,name:e.target.value})} placeholder="Nama Donatur" className="w-full border rounded-xl px-4 py-2.5 text-sm bg-white" />}<input required value={donasiForm.alamat} onChange={e => setDonasiForm({...donasiForm,alamat:e.target.value})} placeholder="Alamat / Blok Rumah" className="w-full border rounded-xl px-4 py-2.5 text-sm bg-white" /><input required type="number" value={donasiForm.jumlah} onChange={e => setDonasiForm({...donasiForm,jumlah:e.target.value})} placeholder="Jumlah Donasi (Rp)" className="w-full border rounded-xl px-4 py-2.5 text-sm bg-white" /><button type="submit" className="w-full bg-[#C1272D] text-white font-bold py-3 rounded-xl hover:bg-red-700 transition text-sm">Kirim Konfirmasi</button></form></div><div className="bg-[#F9F5EB] rounded-2xl border p-6 text-center flex flex-col items-center justify-center"><h4 className="font-bold text-lg mb-4">📱 QRIS Donasi Resmi</h4><div className="bg-white rounded-2xl border shadow-sm p-3 mb-4 inline-block"><img src={qrisImage} alt="QRIS Aulia Komari" className="w-52 h-52 object-contain rounded-xl" /></div><p className="font-bold text-[#C1272D] text-sm mb-1">AULIA KOMARI</p><p className="text-gray-500 text-xs mb-3">Bendahara HUT RI ke-81</p><div className="text-left w-full max-w-xs"><div className="bg-white rounded-xl p-3 border space-y-1.5"><p className="text-xs text-gray-400 text-center mb-1">62-813****5007 • DANA</p><div className="border-t pt-1.5 space-y-1"><p className="text-xs flex items-center gap-2"><span className="font-bold">🏦 SeaBank</span> <span className="font-mono text-gray-700 select-all">901592977740</span></p><p className="text-xs flex items-center gap-2"><span className="font-bold">💳 DANA</span> <span className="font-mono text-gray-700 select-all">081364755007</span></p></div></div></div></div></div></div></section>
+
+      {/* ===== Wrapper flex: Transaksi → Peserta → Talenta → Panitia → Anggaran ===== */}
+      <div className="flex flex-col">
+      {/* =================== TRANSAKSI KEUANGAN REALTIME =================== */}
+      <section id="transaksi" className="py-16 px-4 bg-[#121212] text-white border-t border-gray-800 order-1">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 border-b border-gray-800 pb-5">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center text-lg">💳</span>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight">Transaksi Keuangan Realtime — QRIS Dana & Transfer Bank</h2>
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="bg-green-900/40 text-green-400 text-xs font-bold px-3 py-1.5 rounded-full border border-green-800/30">
+                LIVE • {shared.keuanganList.length} transaksi
+              </span>
+              <span className="bg-gray-800/80 text-gray-300 text-xs font-bold px-3 py-1.5 rounded-full">
+                Pemasukan: {formatRupiah(totalPemasukan)} | Pengeluaran: {formatRupiah(totalPengeluaran)}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+            Iuran / Donatur / Sponsor / Donasi / Pengeluaran — Setiap transaksi langsung terkoneksi & sinkron ke Total Dana, Ringkasan Anggaran, dan Panel Panitia.
+          </p>
+
+          {/* 5 WHITE STATS CARDS */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <div className="bg-white text-gray-900 rounded-xl p-4 border border-gray-200">
+              <div className="text-[11px] text-gray-500 font-semibold mb-1">Cash</div>
+              <div className="text-xl sm:text-2xl font-black text-blue-600">{formatRupiah(totalCash)}</div>
+              <div className="text-[10px] text-gray-400 mt-1">{cashList.length} transaksi cash</div>
+            </div>
+            <div className="bg-white text-gray-900 rounded-xl p-4 border border-gray-200">
+              <div className="text-[11px] text-gray-500 font-semibold mb-1">Donatur</div>
+              <div className="text-xl sm:text-2xl font-black text-red-600">{donaturList.length}</div>
+              <div className="text-[10px] text-gray-400 mt-1">Total donatur</div>
+            </div>
+            {/* KOLOM SPONSOR — slideshow mitra */}
+            <div className="bg-white text-gray-900 rounded-xl p-4 border border-gray-200 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[11px] text-gray-500 font-semibold">Sponsor</div>
+                <span className="text-[10px] text-gray-400">{sponsorSlides.length > 0 ? `${(sponsorIdx % sponsorSlides.length) + 1}/${sponsorSlides.length}` : ''}</span>
+              </div>
+              {sponsorSlides.length === 0 ? (
+                <div className="text-xs text-gray-400 italic mt-2">Belum ada sponsor</div>
+              ) : (
+                <div key={sponsorIdx % sponsorSlides.length} className="flex items-center gap-3 animate-in">
+                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg flex-shrink-0">{sponsorSlides[sponsorIdx % sponsorSlides.length].icon}</div>
+                  <div className="min-w-0">
+                    <div className={`font-black text-sm truncate ${sponsorSlides[sponsorIdx % sponsorSlides.length].warna}`}>{sponsorSlides[sponsorIdx % sponsorSlides.length].nama}</div>
+                    <div className="text-[10px] text-gray-500 truncate">{sponsorSlides[sponsorIdx % sponsorSlides.length].deskripsi}</div>
+                  </div>
+                </div>
+              )}
+              {sponsorSlides.length > 1 && (
+                <div className="flex gap-1 mt-3">
+                  {sponsorSlides.map((_, i) => (
+                    <button key={i} onClick={() => setSponsorIdx(i)} className={`h-1.5 rounded-full transition-all ${i === sponsorIdx % sponsorSlides.length ? 'w-5 bg-purple-500' : 'w-1.5 bg-gray-300'}`} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white text-gray-900 rounded-xl p-4 border border-gray-200">
+              <div className="text-[11px] text-gray-500 font-semibold mb-1">Donasi</div>
+              <div className="text-xl sm:text-2xl font-black text-green-600">{formatRupiah(totalDonasi)}</div>
+              <div className="text-[10px] text-gray-400 mt-1">{donasiList.length} transaksi donasi</div>
+            </div>
+            <div className="bg-white text-gray-900 rounded-xl p-4 border border-gray-200">
+              <div className="text-[11px] text-gray-500 font-semibold mb-1">Pengeluaran</div>
+              <div className="text-xl sm:text-2xl font-black text-orange-600">{formatRupiah(totalPengeluaran)}</div>
+              <div className="text-[10px] text-gray-400 mt-1">{pengeluaranList.length} transaksi</div>
+            </div>
+          </div>
+
+          {/* 6 COLUMNS: CASH, DONATUR, SPONSOR, DONASI, PENGELUARAN, TRANSFER */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-gray-800 border border-gray-800 rounded-xl overflow-hidden">
+            {[
+              { title: 'CASH', color: 'text-blue-400', list: cashList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => `+${formatRupiah(k.jumlah)}`, amt: 'text-blue-400' },
+              { title: 'DONATUR', color: 'text-red-400', list: donaturList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => `+${formatRupiah(k.jumlah)}`, amt: 'text-red-400' },
+              { title: 'SPONSOR', color: 'text-purple-400', list: sponsorTxList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => (k.jumlah ? `+${formatRupiah(k.jumlah)}` : 'Mitra'), amt: 'text-purple-400' },
+              { title: 'DONASI', color: 'text-green-400', list: donasiList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => `+${formatRupiah(k.jumlah)}`, amt: 'text-green-400' },
+              { title: 'PENGELUARAN', color: 'text-orange-400', list: pengeluaranList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => `- ${formatRupiah(k.jumlah)}`, amt: 'text-orange-400', outline: true },
+              { title: 'TRANSFER', color: 'text-yellow-400', list: transferList, empty: 'Belum ada', fmt: (k: KeuanganEntry) => `+${formatRupiah(k.jumlah)}`, amt: 'text-yellow-400' },
+            ].map(col => (
+              <div key={col.title} className="bg-[#161616] p-3 flex flex-col">
+                <h3 className={`text-[11px] font-black tracking-wider uppercase mb-2 ${col.color}`}>{col.title}</h3>
+                <div className="space-y-2 overflow-y-auto max-h-[260px] pr-1 flex-1">
+                  {col.list.length === 0 ? (
+                    <div className="text-[11px] text-gray-600 py-4 text-center italic">{col.empty}</div>
+                  ) : (
+                    col.list.map((k, idx) => (
+                      <div key={idx} className={`rounded-lg p-2.5 ${col.outline ? 'bg-orange-950/30 border border-orange-700/40' : 'bg-gray-900/70 border border-gray-800'}`}>
+                        <div className="font-bold text-xs text-white truncate">{k.nama}</div>
+                        {k.keterangan && <div className="text-[10px] text-gray-500 truncate mt-0.5">{k.keterangan}</div>}
+                        <div className={`font-mono font-bold text-[11px] mt-1 ${col.amt}`}>{col.fmt(k)}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer of Financial Block */}
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-4 border-t border-gray-800 text-[10px] text-gray-500 gap-3">
+            <span>🔗 Sinkron langsung: Iuran + Donatur + Sponsor + Donasi + Pengeluaran → Total Dana Hero & Admin Panitia</span>
+            <button onClick={downloadPengeluaranCSV} className="flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition shadow">
+              📥 Unduh Rincian Pengeluaran CSV
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* PANITIA TABLE */}
+      <section id="panitia" className="py-16 px-4 bg-[#F5F5F0] order-4"><div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border overflow-hidden"><div className="p-5"><h3 className="font-bold text-lg text-[#C1272D] flex items-center gap-2">👥 Susunan Panitia</h3></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-[#C1272D] text-white"><th className="text-left px-4 py-3 font-semibold">Jabatan</th><th className="text-left px-4 py-3 font-semibold">Nama</th></tr></thead><tbody>{panitiaList.filter(p => p.isCore).map((p, i) => (<tr key={i} className={i % 2 === 0 ? 'bg-[#F9F5EB]' : 'bg-white'}><td className="px-4 py-3 font-medium">{p.jabatan}</td><td className="px-4 py-3">{p.nama}{p.hp ? ` (${p.hp})` : ''}</td></tr>))}</tbody></table></div></div></section>
+
+      {/* ANGGARAN */}
+      <section id="anggaran" className="py-16 px-4 bg-white order-5"><div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border overflow-hidden"><div className="p-5"><h3 className="font-bold text-lg text-[#C1272D] flex items-center gap-2">🧮 Ringkasan Anggaran</h3></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-[#C1272D] text-white"><th className="text-left px-4 py-3">Komponen</th><th className="text-right px-4 py-3">Jumlah (Rp)</th><th className="text-left px-4 py-3">Detail</th></tr></thead><tbody>{budgetRows.map((r, i) => (<tr key={i} className={r.isTotal ? 'bg-[#F9E2E2] font-bold text-[#C1272D]' : r.isSurplus ? 'bg-green-50 font-bold text-green-700' : i % 2 === 0 ? 'bg-[#F9F5EB]' : 'bg-white'}><td className="px-4 py-3">{r.komponen}</td><td className="px-4 py-3 text-right">{r.jumlah.toLocaleString('id-ID')}</td><td className="px-4 py-3">{r.detailKey && <button onClick={() => setShowBudgetDetail(r.detailKey!)} className="border border-[#C1272D] text-[#C1272D] px-3 py-1 rounded-full text-xs font-semibold hover:bg-[#C1272D] hover:text-white transition">Lihat Detail</button>}</td></tr>))}</tbody></table></div></div></section>
+
+      {/* REAL-TIME TABLE — DIPINDAH ke bawah Transaksi via order-2 */}
+      <section id="peserta" className="relative order-2">
+        <div className="bg-gradient-to-br from-[#C1272D] via-[#B71C22] to-[#8B1A1A] px-4 pt-14 pb-28"><div className="max-w-6xl mx-auto"><div className="inline-flex items-center gap-2 bg-green-500 text-white text-xs font-bold px-4 py-1.5 rounded-full mb-5 shadow-lg"><span className="relative flex h-2 w-2"><span className="animate-ping absolute h-full w-full rounded-full bg-white opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>LIVE • REAL-TIME</div><div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6"><div><h2 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight">TABEL REAL-TIME</h2><h3 className="text-2xl sm:text-3xl font-black text-white/80 leading-tight">DAFTAR PESERTA</h3><p className="text-white/50 text-sm mt-3 max-w-xl leading-relaxed">Data peserta terupdate otomatis. Sinkron antara halaman utama dan Admin Panitia via Supabase Realtime.</p></div><div className="flex gap-3 flex-shrink-0"><div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl px-5 py-4 text-center min-w-[120px]"><div className="text-xs text-white/60 font-bold uppercase tracking-wider">Total Peserta</div><div className="text-3xl font-black text-white mt-1">{participants.length}</div><div className="flex items-center justify-center gap-1 mt-1"><span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative rounded-full h-1.5 w-1.5 bg-green-400"></span></span><span className="text-[10px] text-green-300 font-semibold">Sinkron</span></div></div><div className="bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl px-5 py-4 text-center min-w-[140px]"><div className="text-xs text-white/60 font-bold uppercase tracking-wider">Status Terakhir</div><div className="text-lg font-black text-white mt-1">{lastRefresh.toLocaleTimeString('id-ID')} WIB</div><div className="flex items-center justify-center gap-1 mt-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span><span className="text-[10px] text-green-300 font-semibold">Sinkron • {isLive ? 'ON' : 'OFF'}</span></div></div></div></div></div></div>
+        <div className="max-w-6xl mx-auto px-4 -mt-20 relative z-10 pb-16"><div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-gray-100"><div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center"><div className="relative flex-1"><svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cari Nama, ID, atau RT / Blok..." className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#C1272D]/20 focus:border-[#C1272D]/40 transition" />{searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm">✕</button>}</div><select value={filterLomba} onChange={e => setFilterLomba(e.target.value)} className="border border-gray-200 bg-gray-50 rounded-xl px-3 py-3 text-sm outline-none min-w-[140px]"><option value="">Semua Lomba</option>{uniqueLomba.map(l => <option key={l} value={l}>{l}</option>)}</select><button onClick={() => setIsLive(!isLive)} className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isLive ? 'bg-green-500 text-white shadow-md shadow-green-200' : 'bg-gray-200 text-gray-600'}`}><span className="relative flex h-2 w-2">{isLive && <span className="animate-ping absolute h-full w-full rounded-full bg-white opacity-75"></span>}<span className={`relative rounded-full h-2 w-2 ${isLive ? 'bg-white' : 'bg-gray-400'}`}></span></span>{isLive ? 'LIVE ON' : 'LIVE OFF'}</button><button onClick={() => { let csv = 'No,ID,Nama,RT,HP,Lomba,Waktu\n'; participants.forEach((p, i) => { csv += `${i+1},${p.id},${p.name},"${p.rt}",${p.hp},"${p.lomba.join('; ')}",${p.waktu}\n`; }); const b = new Blob([csv], { type: 'text/csv' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'pendaftar-mawar.csv'; a.click(); URL.revokeObjectURL(u); }} className="flex items-center gap-1.5 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-700 transition whitespace-nowrap">📥 Export CSV</button></div></div>
+          <div className="px-4 sm:px-5 py-3 border-b border-gray-100 bg-gray-50/50"><div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1"><span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0">Filter Cepat</span><button onClick={() => { setSearchQuery(''); setFilterLomba(''); }} className={`text-[11px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-all ${!searchQuery && !filterLomba ? 'bg-[#C1272D] text-white shadow' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>Semua • {participants.length}</button>{uniqueLomba.map(l => { const cnt = participants.filter(p => p.lomba.includes(l)).length; return (<button key={l} onClick={() => setFilterLomba(filterLomba === l ? '' : l)} className={`text-[11px] font-bold px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-all ${filterLomba === l ? 'bg-[#C1272D] text-white shadow' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}>{l} • {cnt}</button>); })}</div></div>
+          <div className="overflow-x-auto"><div className="max-h-[540px] overflow-y-auto"><table className="w-full text-sm"><thead className="sticky top-0 z-10"><tr className="bg-gray-100 border-b border-gray-200"><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider w-24">No / ID</th><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Peserta & Kontak</th><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Lokasi RT</th><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Lomba Diikuti</th><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Waktu Daftar</th><th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wider w-28">Status</th></tr></thead><tbody>{filteredP.length === 0 ? (<tr><td colSpan={6} className="text-center py-20 text-gray-400"><div className="text-5xl mb-3">🔍</div><div className="font-bold text-gray-500">Tidak ada data ditemukan</div></td></tr>) : filteredP.map((p, i) => { const isNew = newRowIds.has(p.name); const maskedHp = p.hp ? p.hp.replace(/(\d{4})(\d+)(\d{3})/, '$1****$3') : '-'; return (<tr key={p.id+i} className={`border-b border-gray-100 transition-all duration-300 ${isNew ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : 'hover:bg-red-50/30'}`}><td className="px-4 py-3.5"><div className="text-xs text-gray-400 font-mono mb-0.5">{i + 1}.</div><span className="font-mono text-[11px] font-bold text-[#C1272D] bg-red-50 border border-red-100 px-2 py-0.5 rounded-md inline-block">{p.id}</span></td><td className="px-4 py-3.5"><div className="font-bold text-gray-900 text-sm">{p.name}</div><div className="flex items-center gap-2 mt-1"><span className="text-[11px] text-gray-400 font-mono">📱 {maskedHp}</span>{isNew ? <span className="text-[9px] font-bold text-yellow-700 bg-yellow-100 border border-yellow-200 px-1.5 py-0.5 rounded-full">✨ Live join</span> : <span className="text-[9px] font-bold text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-full">• Live join</span>}</div></td><td className="px-4 py-3.5 text-xs text-gray-700">{p.rt}</td><td className="px-4 py-3.5"><div className="flex flex-wrap gap-1">{p.lomba.map((l, li) => <span key={li} className="text-[11px] font-medium text-gray-600">{l}{li < p.lomba.length - 1 ? ',' : ''}</span>)}</div></td><td className="px-4 py-3.5"><div className="text-xs text-gray-700">{p.waktu}</div>{isNew && <div className="text-[10px] text-yellow-600 font-semibold mt-0.5">baru saja</div>}</td><td className="px-4 py-3.5"><span className={`text-xs font-bold tracking-wide ${isNew ? 'text-yellow-600' : 'text-green-600'}`}>{isNew ? '⏳ BARU' : '✅ TERDAFTAR'}</span></td></tr>); })}</tbody></table></div></div>
+          <div className="px-4 sm:px-5 py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-[11px] text-gray-400"><span>✅ Menampilkan <strong className="text-gray-600">{filteredP.length}</strong> dari <strong className="text-gray-600">{participants.length}</strong> peserta</span><span className="flex items-center gap-3"><span>Supabase: <span className="text-green-500 font-bold">ON</span></span><span className="font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">ID MWR81-XXXX</span></span></div>
+        </div><div className="grid sm:grid-cols-3 gap-4 mt-6"><div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm"><div className="flex items-center gap-2 mb-2"><span className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center text-lg">⚡</span><h4 className="font-bold text-sm text-gray-800">Filter Keket Aktif</h4></div><p className="text-xs text-gray-500 leading-relaxed">Otomatis membuang baris RT kosong dan nomor uji coba spam.</p></div><div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm"><div className="flex items-center gap-2 mb-2"><span className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-lg">🔄</span><h4 className="font-bold text-sm text-gray-800">Tempo Reload</h4></div><p className="text-xs text-gray-500 leading-relaxed">Data terbaru muncul di atas dengan highlight kuning otomatis.</p></div><div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm"><div className="flex items-center gap-2 mb-2"><span className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-lg">📤</span><h4 className="font-bold text-sm text-gray-800">Export & Share</h4></div><p className="text-xs text-gray-500 leading-relaxed">Unduh CSV untuk laporan panitia. Siap print.</p></div></div></div>
+      </section>
+
+      {/* =================== TALENTA MALAM PUNCAK 22 AGUSTUS 2026 =================== */}
+      <section id="talenta" className="py-16 px-4 bg-[#1a1a1a] text-white order-3">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <span className="inline-block text-[11px] font-bold bg-yellow-400 text-gray-900 px-3 py-1 rounded-full mb-3">🌙 MALAM PUNCAK • 22 AGUSTUS 2026</span>
+            <h2 className="text-2xl sm:text-3xl font-black">Talenta Anak Malam Puncak HUT RI Ke-81</h2>
+            <p className="text-gray-400 text-sm mt-2">Rundown pengisi acara — data dapat ditambah & diedit di Kolom Khusus Admin Panitia</p>
+          </div>
+          <div className="bg-[#161616] border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[#C1272D] text-white">
+                    <th className="px-4 py-3 text-left text-xs font-bold w-12">No</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold">Jenis Penampilan</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold">Nama Peserta</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold w-24">Jumlah</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold w-24">Durasi</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold">Penanggung Jawab</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold w-24">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {shared.talentaList.map((t, i) => (
+                    <tr key={(t.id || 0) + '-' + i} className="hover:bg-white/5 transition">
+                      <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{t.no || i + 1}</td>
+                      <td className="px-4 py-3.5 font-bold text-yellow-400">{t.jenis}</td>
+                      <td className="px-4 py-3.5 text-gray-200 text-xs leading-relaxed">{t.nama}</td>
+                      <td className="px-4 py-3.5 text-center"><span className="bg-gray-800 text-gray-200 font-bold px-2.5 py-1 rounded-full text-xs">{t.jumlah || '—'}</span></td>
+                      <td className="px-4 py-3.5 text-center text-gray-300 text-xs">{t.durasi ? `${t.durasi} Menit` : '— Menit'}</td>
+                      <td className="px-4 py-3.5 text-gray-400 text-xs">{t.pj || '________________'}</td>
+                      <td className="px-4 py-3.5 text-center">
+                        {t.status ? <span className="text-[10px] font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded-full border border-green-700/40">✓ {t.status}</span> : <span className="text-gray-600">☐</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Total peserta */}
+            <div className="px-5 py-4 bg-[#101010] border-t border-gray-800">
+              <div className="text-xs font-black text-yellow-400 uppercase tracking-wider mb-2">Total Peserta Saat Ini</div>
+              <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-xs text-gray-400">
+                {shared.talentaList.map((t, i) => (
+                  <div key={i} className="flex justify-between"><span>{t.jenis}</span><span className="text-gray-200 font-bold">{t.jumlah ? `${t.jumlah} orang` : '± … orang'}</span></div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-gray-300">
+                Total sementara: <span className="font-black text-white">{shared.talentaList.reduce((s, t) => s + (parseInt(t.jumlah) || 0), 0)} peserta</span> + peserta "dkk" Tari Zapin.
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </section>
+      </div>{/* end flex wrapper */}
 
-      <style>{`@keyframes float-slow{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} .scrollbar-hide::-webkit-scrollbar{display:none} .custom-scrollbar::-webkit-scrollbar{width:6px;height:6px} .custom-scrollbar::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:999px}`}</style>
+      {/* RUNDOWN */}
+      <section id="rundown" className="py-16 px-4 bg-white"><div className="max-w-4xl mx-auto"><div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900">📋 RUNDOWN ACARA</h2><p className="text-gray-500 mt-1">Jadwal Kegiatan — Minggu, 17 Agustus 2026</p></div><div className="flex flex-wrap gap-2 justify-center mb-8"><button onClick={() => { const b = new Blob([rundownText()], { type: 'text/plain' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = 'rundown-hutri81-mawar.txt'; a.click(); URL.revokeObjectURL(u); }} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition">📄 Download (TXT)</button><button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2.5 bg-gray-700 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition">🖨️ Cetak / Save PDF</button></div><div className="bg-[#F9F5EB] rounded-2xl border p-6"><h4 className="font-bold text-[#C1272D] mb-4 text-sm">☀️ PAGI & SIANG</h4><div className="space-y-3 mb-8">{rundownPagi.map((r, i) => (<div key={i} className="flex items-start gap-4 bg-white rounded-xl p-3 border"><div className="min-w-[60px] text-center"><span className="font-black text-[#C1272D] text-lg">{r.waktu}</span></div><div className="flex-1"><span className="text-lg mr-2">{r.icon}</span><span className="font-semibold text-sm text-gray-800">{r.kegiatan}</span>{r.keterangan && <span className="text-xs text-gray-400 ml-2">({r.keterangan})</span>}</div></div>))}</div><h4 className="font-bold text-[#C1272D] mb-4 text-sm">🌙 MALAM PUNCAK</h4><div className="space-y-3">{rundownMalam.map((r, i) => (<div key={i} className="flex items-start gap-4 bg-white rounded-xl p-3 border"><div className="min-w-[60px] text-center"><span className="font-black text-[#C1272D] text-lg">{r.waktu}</span></div><div className="flex-1"><span className="text-lg mr-2">{r.icon}</span><span className="font-semibold text-sm text-gray-800">{r.kegiatan}</span>{r.keterangan && <span className="text-xs text-gray-400 ml-2">({r.keterangan})</span>}</div></div>))}</div></div></div></section>
+
+      {/* PANITIA */}
+      <section id="panitia" className="py-16 px-4 bg-[#F5F5F0]"><div className="max-w-6xl mx-auto"><div className="text-center mb-8"><h2 className="text-3xl font-black text-gray-900">PANITIA PELAKSANA</h2><p className="text-gray-500 mt-1">Struktur Panitia</p></div><div className="grid sm:grid-cols-3 gap-4 mb-6">{panitiaList.filter(p => ['Penanggung Jawab','Ketua Panitia','Wakil Ketua'].includes(p.jabatan)).map((p, i) => (<a key={i} href={p.hp ? `https://wa.me/62${p.hp.replace(/\D/g, '').replace(/^0/, '')}` : '#'} target="_blank" rel="noopener noreferrer" className="bg-white rounded-2xl shadow-sm border p-5 text-center hover:shadow-lg transition group block"><div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl group-hover:bg-[#C1272D] group-hover:text-white transition">👤</div><div className="text-[10px] text-yellow-600 font-bold">⭐ {p.jabatan}</div><div className="font-bold text-gray-900 mt-1">{p.nama}</div><div className="text-xs text-gray-500 mt-0.5">📱 {p.hp}</div></a>))}</div><h4 className="font-bold text-gray-700 mb-4">Anggota Panitia Lainnya</h4><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">{panitiaList.filter(p => !['Penanggung Jawab','Ketua Panitia','Wakil Ketua','Ketua Pembina','Ketua Penasehat'].includes(p.jabatan)).map((p, i) => (<div key={i} className="bg-white rounded-xl border p-3 text-center hover:shadow-md transition"><div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2 text-lg">👤</div><div className="font-bold text-sm text-gray-800 truncate">{p.nama}</div><div className="text-[10px] text-gray-500">{p.jabatan}</div>{p.hp && <div className="text-[10px] text-gray-400 mt-0.5">📞 {p.hp}</div>}{p.hp && !p.hp.includes('xxx') && <a href={`https://wa.me/62${p.hp.replace(/\D/g, '').replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-green-500 hover:text-green-600 text-lg">💬</a>}</div>))}</div></div></section>
+
+      {/* FOOTER */}
+      <footer className="bg-[#1a1a1a] text-white py-12 px-4"><div className="max-w-6xl mx-auto text-center"><div className="flex items-center justify-center gap-3 mb-4"><div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center font-black text-[#C1272D] text-lg shadow">81</div><div className="text-left"><div className="font-bold text-lg">HUT RI Ke-81</div><div className="text-xs text-gray-400">Perumahan Ciptaland Blok Mawar</div></div></div><p className="text-gray-400 text-sm mb-2">RT 002 / RW 014</p><p className="text-gray-500 text-xs mb-4">📧 panitiahutri81.mawar002@gmail.com</p><div className="flex items-center justify-center gap-4 mb-6"><button onClick={onGalleryClick} className="text-xs text-gray-400 hover:text-white transition">📸 Galeri</button><span className="text-gray-700">•</span><button onClick={onAdminClick} className="text-xs text-gray-600 hover:text-gray-400 transition">🔒 Panel Panitia</button></div><div className="border-t border-gray-800 pt-4"><p className="text-gray-600 text-xs">© 2026 Panitia HUT RI ke-81 — Perumahan Ciptaland Blok Mawar 🇮🇩</p></div></div></footer>
+
+      {/* NATIVE FLOATING WHATSAPP BUTTON */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {waOpen && (
+          <div className="absolute bottom-16 right-0 bg-white rounded-2xl shadow-2xl border w-72 overflow-hidden animate-in mb-2">
+            <div className="bg-[#25D366] px-4 py-3 text-white">
+              <div className="font-bold text-sm">Hubungi Panitia via WhatsApp</div>
+              <div className="text-[10px] text-white/70">Pilih kontak panitia aktif</div>
+            </div>
+            {[{n:'Eka Rista Y',j:'Penanggung Jawab',h:'0821-7129-9984'},{n:'Bayu S.Permana',j:'Ketua Panitia',h:'0812-8839-5550'},{n:'Sugiono',j:'Wakil Ketua',h:'0831-8395-0205'}].map((c,i)=>(
+              <a key={i} href={`https://wa.me/62${c.h.replace(/\D/g,'').replace(/^0/,'')}?text=Halo%20${encodeURIComponent(c.n)}%2C%20saya%20ingin%20bertanya%20tentang%20HUT%20RI%20ke-81`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition border-b last:border-0">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.739-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.403.002 9.799-4.382 9.802-9.77.001-2.611-1.013-5.064-2.855-6.912C16.376 2.075 13.91 1.06 11.298 1.06 5.9 1.06 1.505 5.447 1.502 10.835c-.001 1.516.4 3.003 1.159 4.298l-.997 3.639 3.734-.979zm11.332-6.52c-.27-.136-1.597-.787-1.845-.877-.247-.09-.427-.135-.607.136-.18.27-.697.877-.855 1.057-.157.18-.315.203-.585.068-1.745-.863-2.923-1.536-4.088-2.545-.308-.266-.312-.418-.112-.667.157-.197.35-.418.525-.626.175-.208.233-.356.35-.593.116-.237.058-.445-.029-.623-.087-.18-.607-1.464-.83-1.997-.217-.52-.455-.45-.62-.45-.16 0-.344-.012-.529-.012-.185 0-.485.07-.74.35-.254.28-.97.948-.97 2.31 0 1.361 1.001 2.68 1.14 2.862.14.18 1.97 3.01 4.773 4.22.666.287 1.187.458 1.593.587.67.213 1.28.183 1.762.112.537-.08 1.597-.653 1.822-1.252.225-.6 2.25-1.722.225-.6-.045-.136-.21-.27-.48-.406z"/></svg>
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-sm text-gray-800">{c.j}</div>
+                  <div className="text-xs text-gray-500">{c.h}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+        <button onClick={() => setWaOpen(!waOpen)} className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white transition-all hover:scale-110 ${waOpen ? 'bg-red-500 rotate-45' : 'bg-[#25D366]'}`}>
+          {waOpen ? '✕' : (
+            <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.739-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.403.002 9.799-4.382 9.802-9.77.001-2.611-1.013-5.064-2.855-6.912C16.376 2.075 13.91 1.06 11.298 1.06 5.9 1.06 1.505 5.447 1.502 10.835c-.001 1.516.4 3.003 1.159 4.298l-.997 3.639 3.734-.979zm11.332-6.52c-.27-.136-1.597-.787-1.845-.877-.247-.09-.427-.135-.607.136-.18.27-.697.877-.855 1.057-.157.18-.315.203-.585.068-1.745-.863-2.923-1.536-4.088-2.545-.308-.266-.312-.418-.112-.667.157-.197.35-.418.525-.626.175-.208.233-.356.35-.593.116-.237.058-.445-.029-.623-.087-.18-.607-1.464-.83-1.997-.217-.52-.455-.45-.62-.45-.16 0-.344-.012-.529-.012-.185 0-.485.07-.74.35-.254.28-.97.948-.97 2.31 0 1.361 1.001 2.68 1.14 2.862.14.18 1.97 3.01 4.773 4.22.666.287 1.187.458 1.593.587.67.213 1.28.183 1.762.112.537-.08 1.597-.653 1.822-1.252.225-.6 2.25-1.722.225-.6-.045-.136-.21-.27-.48-.406z" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* MODALS */}
+      {showRegisterModal && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowRegisterModal(false)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}><div className="bg-gradient-to-r from-[#C1272D] to-[#8B1A1A] px-6 py-4 rounded-t-2xl flex items-center justify-between"><h3 className="font-bold text-white text-lg">📝 Form Pendaftaran</h3><button onClick={() => setShowRegisterModal(false)} className="text-white/70 hover:text-white text-xl">✕</button></div><form onSubmit={handleRegister} className="p-6 space-y-4"><div><label className="text-xs font-semibold text-gray-600 block mb-1">Nama Lengkap *</label><input required value={formData.name} onChange={e => setFormData({...formData,name:e.target.value})} placeholder="Contoh: Abiyu Rexxa" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div><div><label className="text-xs font-semibold text-gray-600 block mb-1">Nomor WhatsApp *</label><input required value={formData.hp} onChange={e => setFormData({...formData,hp:e.target.value})} placeholder="08xxxxxxxxxx" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div><div><label className="text-xs font-semibold text-gray-600 block mb-1">Alamat (RT / Blok) *</label><input required value={formData.rt} onChange={e => setFormData({...formData,rt:e.target.value})} placeholder="Contoh: RT 002 / Blok Mawar 12" className="w-full border rounded-xl px-4 py-2.5 text-sm" /></div><div><label className="text-xs font-semibold text-gray-600 block mb-1">Pilih Lomba * ({formData.lomba.length} dipilih)</label><div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-xl p-2 bg-gray-50">{allLombaNames.map(l => (<label key={l} className="flex items-center gap-2 text-sm bg-white p-2 rounded-lg border cursor-pointer hover:bg-red-50/40 transition"><input type="checkbox" checked={formData.lomba.includes(l)} onChange={e => { if (e.target.checked) setFormData({...formData,lomba:[...formData.lomba,l]}); else setFormData({...formData,lomba:formData.lomba.filter(x => x !== l)}); }} className="rounded text-[#C1272D]" /><span>{l}</span></label>))}</div></div><button type="submit" className="w-full bg-[#C1272D] text-white font-bold py-3 rounded-xl hover:bg-red-700 transition text-sm">✅ Daftar Sekarang</button></form></div></div>)}
+      {showBuktiDaftar && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuktiDaftar(null)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in p-6 text-center" onClick={e => e.stopPropagation()}><div className="text-4xl mb-3">🎉</div><h3 className="font-black text-lg text-[#C1272D] mb-4">Pendaftaran Berhasil!</h3><div className="bg-red-50 border-2 border-dashed border-[#C1272D] rounded-xl p-4 text-left space-y-2 text-sm"><div><strong>No. ID:</strong> <span className="text-[#C1272D] font-bold">{showBuktiDaftar.id}</span></div><div><strong>Nama:</strong> {showBuktiDaftar.name}</div><div><strong>RT:</strong> {showBuktiDaftar.rt}</div><div><strong>HP:</strong> {showBuktiDaftar.hp}</div><div><strong>Lomba:</strong> {showBuktiDaftar.lomba.join(', ')}</div></div><button onClick={() => setShowBuktiDaftar(null)} className="mt-4 w-full bg-[#C1272D] text-white py-2.5 rounded-xl font-bold">Tutup</button></div></div>)}
+      {showBuktiDonasi && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBuktiDonasi(null)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in p-6 text-center" onClick={e => e.stopPropagation()}><div className="text-4xl mb-3">🤲</div><h3 className="font-black text-lg text-green-700 mb-4">Donasi Berhasil!</h3><div className="bg-green-50 border-2 border-dashed border-green-500 rounded-xl p-4 text-left space-y-2 text-sm"><div><strong>Ref:</strong> <span className="text-green-700 font-bold">{showBuktiDonasi.id}</span></div><div><strong>Nama:</strong> {showBuktiDonasi.name}</div><div><strong>Jumlah:</strong> {formatRupiah(showBuktiDonasi.jumlah)}</div><div><strong>Waktu:</strong> {showBuktiDonasi.waktu}</div></div><button onClick={() => setShowBuktiDonasi(null)} className="mt-4 w-full bg-emerald-600 text-white py-2.5 rounded-xl font-bold">Tutup</button></div></div>)}
+      {showBudgetDetail && budgetDetails[showBudgetDetail] && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowBudgetDetail(null)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in" onClick={e => e.stopPropagation()}><div className="bg-[#C1272D] px-6 py-4 rounded-t-2xl flex justify-between"><h3 className="font-bold text-white">Detail Anggaran</h3><button onClick={() => setShowBudgetDetail(null)} className="text-white/70 hover:text-white text-xl">✕</button></div><div className="p-4"><table className="w-full text-sm"><thead><tr className="bg-gray-100"><th className="text-left px-3 py-2">Item</th><th className="text-left px-3 py-2">Qty</th><th className="text-right px-3 py-2">Harga</th><th className="text-right px-3 py-2">Subtotal</th></tr></thead><tbody>{budgetDetails[showBudgetDetail].map((d, i) => (<tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}><td className="px-3 py-2">{d.item}</td><td className="px-3 py-2">{d.qty}</td><td className="px-3 py-2 text-right">{d.harga.toLocaleString('id-ID')}</td><td className="px-3 py-2 text-right font-semibold">{d.subtotal.toLocaleString('id-ID')}</td></tr>))}</tbody></table></div></div></div>)}
     </div>
   );
 }
