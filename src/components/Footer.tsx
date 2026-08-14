@@ -24,7 +24,7 @@ export default function Footer({ onNavigate }: FooterProps) {
             className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#22c55e] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-green-900/30 transition hover:bg-[#16a34a]"
           >
             <WhatsAppIcon />
-            0858 1500 882
+            0812 8839 5550
           </a>
           <div className="mt-6 flex items-center gap-3">
             <Social href="https://www.instagram.com/@putranet_official/" label="Instagram">
