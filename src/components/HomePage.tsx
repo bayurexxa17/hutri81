@@ -356,7 +356,7 @@ function VideoSection() {
           ) : (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0b1d36]/80 p-8 text-center">
               <span>
-                <p className="font-display text-2xl font-bold text-white">Oxygen.id Official</p>
+                <p className="font-display text-2xl font-bold text-white">Putra.net Official</p>
                 <p className="mt-2 text-sm text-white/70">
                   Video: Cara mudah terhubung dengan internet unlimited & cepat
                 </p>
@@ -366,7 +366,7 @@ function VideoSection() {
         </button>
 
         <div>
-          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-oxy-teal">Oxygen.id Home</p>
+          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-oxy-teal">Putra.net Home</p>
           <h2 className="mt-2 font-display text-[32px] font-extrabold leading-tight text-[#122033] sm:text-[40px]">
             Terkoneksi Dengan Internet yang Unlimited & Cepat
           </h2>
@@ -378,7 +378,7 @@ function VideoSection() {
             bulanan — langsung dari aplikasi Selfcare.
           </p>
           <p className="mt-4 text-[15px] leading-8 text-slate-600">
-            Dengan jangkauan yang terus berkembang di kota-kota besar Indonesia, Oxygen.id siap menjadi
+            Dengan jangkauan yang terus berkembang di kota-kota besar Indonesia, Putra.net siap menjadi
             partner koneksi rumah dan hunian vertikal Anda. Nikmati modem WiFi dual band, saluran TV
             premium, serta dukungan customer care 24 jam di 1500 882.
           </p>
@@ -445,7 +445,7 @@ function BenefitsGrid() {
     <section className="bg-[#0b1d36] py-16 sm:py-20">
       <div className="mx-auto max-w-[1100px] px-4 sm:px-6">
         <div className="mb-10 text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#facc15]">Kenapa Oxygen.id</p>
+          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#facc15]">Kenapa Putra.net</p>
           <h2 className="mt-2 font-display text-[32px] font-extrabold text-white sm:text-[40px]">
             Semua yang Kamu Butuhkan dalam Satu Koneksi
           </h2>
