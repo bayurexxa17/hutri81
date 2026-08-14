@@ -104,7 +104,7 @@ function AreaModal({ onClose, onFull }: { onClose: () => void; onFull: () => voi
             ✕
           </button>
         </div>
-        <p className="mt-1 text-sm text-slate-500">Cek apakah alamat Anda sudah terjangkau jaringan Oxygen.id.</p>
+        <p className="mt-1 text-sm text-slate-500">Cek apakah alamat Anda sudah terjangkau jaringan Putra.net.</p>
         <input
           autoFocus
           value={q}
