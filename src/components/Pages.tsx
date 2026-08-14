@@ -13,34 +13,34 @@ type PagesProps = {
 const newsList: NewsArticle[] = [
   {
     id: "suka-suka",
-    title: "Oxygen.id Luncurkan Internet Suka-Suka, Unlimited Mulai Rp13.000/Hari",
+    title: "Putra.net Luncurkan Internet Suka-Suka, Unlimited Mulai Rp13.000/Hari",
     date: "3 Oktober 2025",
     excerpt:
       "Paket internet fleksibel dengan masa aktif 1, 7, atau 14 hari. Cocok untuk gaya hidup digital yang dinamis tanpa terikat paket bulanan.",
     category: "Produk",
   },
   {
-    id: "palembang",
-    title: "Oxygen.id Resmikan Cabang ke-14 di Palembang, Percepat Ekonomi Digital",
+    id: "ciptaland",
+    title: "Putra.net Resmikan Cabang ke-14 di Palembang, Percepat Ekonomi Digital",
     date: "18 November 2025",
     excerpt:
       "Perluasan jaringan fiber optic ke Sumatera Selatan memperkuat komitmen Oxygen.id menghadirkan internet cepat dan terjangkau.",
     category: "Perusahaan",
   },
   {
-    id: "depok",
-    title: "Internet Cepat dan Stabil, Oxygen.id Resmikan Cabang Depok",
+    id: "tiban",
+    title: "Internet Cepat dan Stabil, @putra.net Resmikan Cabang Depok",
     date: "9 September 2025",
     excerpt:
       "Kantor layanan baru di Depok memudahkan pelanggan Jabodetabek mendapatkan dukungan teknis dan pendaftaran langsung.",
     category: "Perusahaan",
   },
   {
-    id: "talkxygen",
-    title: "Talkxygen: Oxygen.id Beri Solusi Cerdas Bisnis Masa Kini",
+    id: "talkputra",
+    title: "Talkputra: Putra.net Beri Solusi Cerdas Bisnis Masa Kini",
     date: "22 Juli 2025",
     excerpt:
-      "Forum Talkxygen membahas strategi konektivitas untuk UMKM dan korporasi di era transformasi digital.",
+      "Forum Talkputra membahas strategi konektivitas untuk UMKM dan korporasi di era transformasi digital.",
     category: "Event",
   },
 ];
@@ -82,7 +82,7 @@ const addons = [
 
 const faqs = [
   {
-    q: "Bagaimana cara berlangganan Oxygen.id?",
+    q: "Bagaimana cara berlangganan Putra.net?",
     a: "Cek area terlebih dahulu melalui menu Cari Area, pilih paket, lalu isi formulir Berlangganan. Tim kami akan menghubungi Anda untuk jadwal instalasi 3–4 hari kerja.",
   },
   {
@@ -98,17 +98,17 @@ const faqs = [
     a: "Pembayaran dapat dilakukan melalui Selfcare, virtual account bank, e-wallet, minimarket, atau transfer. Sistem berlangganan reguler adalah pembayaran di awal.",
   },
   {
-    q: "Berapa nomor Customer Care Oxygen.id?",
-    a: "Hubungi 1500 882 (24 jam) atau WhatsApp 0858 1500 882. Email: ccare@oxygen.id.",
+    q: "Berapa nomor Customer Care Putra.net?",
+    a: "Hubungi 1500 882 (24 jam) atau WhatsApp 0858 1500 882. Email: ccare@putra.net.",
   },
   {
-    q: "Apakah internet Oxygen.id unlimited tanpa FUP?",
-    a: "Ya. Semua paket Oxygen.id Home menggunakan 100% fiber optic tanpa kuota dan tanpa FUP.",
+    q: "Apakah internet Putra.net unlimited tanpa FUP?",
+    a: "Ya. Semua paket Putra.net Home menggunakan 100% fiber optic tanpa kuota dan tanpa FUP.",
   },
 ];
 
 const homebases = [
-  { city: "Jakarta Selatan", address: "Cervino Village, Jl. KH Abdullah Syafei No.27, Tebet" },
+  { city: "Sekupang", address: "Perumahan Ciptaland, Jl. Ciptaland No.58, Tiban" },
   { city: "Jakarta Pusat", address: "Jl. Proklamasi, Menteng" },
   { city: "Depok", address: "Ruko Margonda, Kota Depok" },
   { city: "Tangerang", address: "BSD City, Serpong" },
@@ -353,7 +353,7 @@ function NewsDetail({ id, onBack }: { id: string | null; onBack: () => void }) {
     <PageShell eyebrow={item.category} title={item.title} subtitle={item.date}>
       <article className="rounded-3xl bg-white p-6 leading-8 text-slate-700 shadow-lg sm:p-10">
         <p>
-          {item.excerpt} Oxygen.id terus berinovasi menghadirkan layanan internet fiber optic yang relevan
+          {item.excerpt} Putra.net terus berinovasi menghadirkan layanan internet fiber optic yang relevan
           dengan kebutuhan masyarakat modern — cepat, stabil, fleksibel, dan mudah digunakan.
         </p>
         <p className="mt-4">
@@ -362,7 +362,7 @@ function NewsDetail({ id, onBack }: { id: string | null; onBack: () => void }) {
           langsung siap digunakan.
         </p>
         <p className="mt-4">
-          Untuk informasi lengkap hubungi Customer Care 1500 882 atau WhatsApp 0858 1500 882.
+          Untuk informasi lengkap hubungi Customer Care 0812 8839 5550 atau WhatsApp 0812 8839 5550.
         </p>
         <button type="button" onClick={onBack} className="mt-8 text-sm font-bold text-oxy-teal">
           ← Kembali ke News
@@ -377,7 +377,7 @@ function HelpPage() {
   return (
     <PageShell
       eyebrow="BANTUAN"
-      title="Pusat Bantuan Oxygen.id"
+      title="Pusat Bantuan Putra.net"
       subtitle="Temukan jawaban seputar pendaftaran, pembayaran, paket, dan layanan pelanggan."
     >
       <div className="grid gap-8 lg:grid-cols-[1.4fr_0.8fr]">
@@ -456,9 +456,9 @@ function ContactPage() {
             <br />
             Indonesia - 12820
           </p>
-          <p className="mt-5 font-display text-3xl font-extrabold text-[#122033]">1500 882</p>
+          <p className="mt-5 font-display text-3xl font-extrabold text-[#122033]">0812 8839 5550</p>
           <p className="text-sm text-slate-500">Call center 24 jam</p>
-          <p className="mt-3 font-bold text-[#22c55e]">0858 1500 882</p>
+          <p className="mt-3 font-bold text-[#22c55e]">0812 8839 5550</p>
           <p className="text-sm text-slate-500">WhatsApp official</p>
           <a
             href="https://maps.app.goo.gl/4RaQkLMqe5rkzSdY7"
@@ -676,7 +676,7 @@ function SelfcarePage() {
           <button type="submit" className="w-full rounded-full bg-[#f97316] py-3 text-sm font-bold text-white">
             Masuk Selfcare
           </button>
-          <p className="text-center text-xs text-slate-500">Lupa password? Hubungi 1500 882</p>
+          <p className="text-center text-xs text-slate-500">Lupa password? Hubungi 0812 8839 5550</p>
         </form>
       ) : (
         <div className="grid gap-5 md:grid-cols-3">
