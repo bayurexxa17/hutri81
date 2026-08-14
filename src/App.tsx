@@ -21,8 +21,8 @@ export default function App() {
   useEffect(() => {
     document.title =
       view === "home"
-        ? "Oxygen.id — Internet Suka-Suka | Wifi Rumah Unlimited & Cepat"
-        : `Oxygen.id — ${labelOf(view)}`;
+        ? "Putra.net — Internet Suka-Suka | Wifi Rumah Unlimited & Cepat"
+        : `Putra.net — ${labelOf(view)}`;
   }, [view]);
 
   const isRt = view === "rt-login" || view === "rt-admin";
