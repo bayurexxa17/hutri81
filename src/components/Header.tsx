@@ -55,7 +55,7 @@ export default function Header({ view, onNavigate, onOpenSearch }: HeaderProps) 
           type="button"
           onClick={() => onNavigate("home")}
           className="shrink-0"
-          aria-label="Beranda Oxygen.id"
+          aria-label="Beranda Putra.net"
         >
           <Logo />
         </button>
